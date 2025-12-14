@@ -61,6 +61,54 @@ To unlink:
 bun unlink dota-chop-shop
 ```
 
+
+### Interactive Mode (`run` command)
+
+For users who prefer guided prompts rather than command-line flags, use the interactive `run` command:
+
+```bash
+chop-shop run
+```
+
+This launches an interactive wizard that guides you through:
+1. **General Configuration**: Aura multiplier, item limits, search parameters
+2. **Stage Definition Method**: Choose how to define progression stages
+3. **Stage Configuration**: Enter details for each stage (costs, required/excluded items)
+
+The interactive mode displays helpful defaults in grey text and validates all inputs as you go.
+
+**Example interactive session:**
+```bash
+$ chop-shop run
+Welcome to chop-shop interactive mode!
+
+✔ Aura Multiplier?
+  default: 1.0
+  > 2.5
+
+✔ Max items per loadout? (1-6)
+  default: 3
+  > 
+
+✔ How would you like to define stages?
+  > Cost thresholds (e.g., 2000g, 4000g, 7000g)
+
+✔ How many stages do you want to analyze?
+  default: 3
+  > 
+
+[... continues with stage-by-stage prompts ...]
+
+Analysis complete!
+```
+
+**Interactive command also accepts pre-filled options:**
+```bash
+chop-shop run --aura 2.5
+```
+
+This pre-fills the aura multiplier and asks for remaining options interactively.
+
 ## Quick Start
 
 All examples below use `chop-shop`. If you're using `bun run`, replace `chop-shop` with `bun run src/cli/index.ts`.

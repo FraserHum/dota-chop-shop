@@ -12,6 +12,7 @@ import { printEfficiencyAnalysis } from "./commands/efficiency";
 import { printTransitionsAnalysis } from "./commands/transitions";
 import { printReachabilityAnalysis } from "./commands/reachability";
 import { printProgressionAnalysis } from "./commands/progression";
+import { printInteractiveRun } from "./commands/run";
 
 const program = new Command();
 
@@ -56,6 +57,34 @@ function getAuraMultiplier(command: Command): number | undefined {
 // ─────────────────────────────────────────────────────────────
 // efficiency command
 // ─────────────────────────────────────────────────────────────
+program
+
+// ─────────────────────────────────────────────────────────────
+// run command (interactive mode)
+// ─────────────────────────────────────────────────────────────
+program
+  .command("run")
+  .description("Interactive mode - step-by-step guide to custom analysis")
+  .option(
+    "-a, --aura <number>",
+    "Pre-fill aura multiplier",
+    parseFloat
+  )
+  .action(async function(this: Command, options) {
+    try {
+      const auraMultiplier = getAuraMultiplier(this) ?? options.aura;
+      const ctx = await initializeContext({
+        auraMultiplier,
+        onProgress: (msg) => console.log(msg),
+      });
+      console.log("");
+      await printInteractiveRun(ctx, auraMultiplier);
+    } catch (error) {
+      console.error("Error:", error);
+      process.exit(1);
+    }
+  });
+
 program
   .command("efficiency")
   .description("Analyze item efficiency rankings and stat valuations")
