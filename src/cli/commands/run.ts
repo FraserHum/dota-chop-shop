@@ -43,36 +43,31 @@ export async function printInteractiveRun(
 
     // Build final options
     const options: BuildProgressionOptions = {
-      auraMultiplier: generalConfig.auraMultiplier,
-      itemCount: generalConfig.itemCount,
+      stages,
+      defaultItemCount: generalConfig.itemCount,
       resultLimit: generalConfig.resultLimit,
       beamWidth: generalConfig.beamWidth,
-      minReuse: generalConfig.minReuse,
-      targetCoverage: generalConfig.targetCoverage,
+      minComponentReuse: generalConfig.minReuse,
+      statValuation: ctx.statValuation,
+      targetCoverageWeight: generalConfig.targetCoverage,
+      includeComponentItems: true,
       inventorySlots: generalConfig.inventorySlots,
       backpackSlots: generalConfig.backpackSlots,
-      exclude: generalConfig.exclude,
-      stages,
-      slotOptions: {
-        inventorySlots: generalConfig.inventorySlots,
-        backpackSlots: generalConfig.backpackSlots,
-      },
-      onProgress: (msg) => console.log(msg),
     };
 
     // Run analysis
     const s = spinner();
     s.start("Analyzing progression...");
 
-    const result = await analyzeProgression(ctx, options);
+    const result = analyzeProgression(ctx.items, ctx.config, options, ctx.repo);
 
     s.stop("Analysis complete!");
     console.log("");
 
     // Display results
-    console.log(formatProgressionStats(result));
+    console.log(formatProgressionStats(result.stats));
     console.log("");
-    console.log(formatProgression(result, generalConfig.resultLimit));
+    console.log(formatProgression(result, false));
 
     outro("Analysis complete!");
   } catch (error) {
@@ -104,7 +99,7 @@ async function promptGeneralConfig(
 
   const auraMultiplier =
     prefilledAura ??
-    (await promptNumber("Aura Multiplier?", {
+    parseFloat(await promptNumber("Aura Multiplier?", {
       defaultValue: "1.0",
       validator: (v) => {
         const num = parseFloat(v);
@@ -115,7 +110,7 @@ async function promptGeneralConfig(
       },
     }));
 
-  const itemCount = await promptNumber("Max items per loadout? (1-6)", {
+  const itemCount = parseInt(await promptNumber("Max items per loadout? (1-6)", {
     defaultValue: "3",
     validator: (v) => {
       const num = parseInt(v, 10);
@@ -124,9 +119,9 @@ async function promptGeneralConfig(
       }
       return true;
     },
-  });
+  }), 10);
 
-  const resultLimit = await promptNumber("Maximum results to show? (1-100)", {
+  const resultLimit = parseInt(await promptNumber("Maximum results to show? (1-100)", {
     defaultValue: "20",
     validator: (v) => {
       const num = parseInt(v, 10);
@@ -135,10 +130,10 @@ async function promptGeneralConfig(
       }
       return true;
     },
-  });
+  }), 10);
 
   const beamWidthInput = await promptString(
-    "Beam width for search? (leave empty for auto)",
+    "Beam width for search?",
     {
       defaultValue: "auto",
       placeholder: "auto or number",
@@ -148,7 +143,7 @@ async function promptGeneralConfig(
   const beamWidth =
     beamWidthInput === "auto" ? undefined : parseInt(beamWidthInput, 10) || undefined;
 
-  const minReuse = await promptNumber("Minimum component reuse? (0.0-1.0)", {
+  const minReuse = parseFloat(await promptNumber("Minimum component reuse? (0.0-1.0)", {
     defaultValue: "0.3",
     validator: (v) => {
       const num = parseFloat(v);
@@ -157,9 +152,9 @@ async function promptGeneralConfig(
       }
       return true;
     },
-  });
+  }));
 
-  const targetCoverage = await promptNumber("Target coverage weight? (0.0-1.0)", {
+  const targetCoverage = parseFloat(await promptNumber("Target coverage weight? (0.0-1.0)", {
     defaultValue: "0.4",
     validator: (v) => {
       const num = parseFloat(v);
@@ -168,9 +163,9 @@ async function promptGeneralConfig(
       }
       return true;
     },
-  });
+  }));
 
-  const inventorySlots = await promptNumber("Inventory slots? (1-6)", {
+  const inventorySlots = parseInt(await promptNumber("Inventory slots? (1-6)", {
     defaultValue: "6",
     validator: (v) => {
       const num = parseInt(v, 10);
@@ -179,9 +174,9 @@ async function promptGeneralConfig(
       }
       return true;
     },
-  });
+  }), 10);
 
-  const backpackSlots = await promptNumber("Backpack slots? (0-3)", {
+  const backpackSlots = parseInt(await promptNumber("Backpack slots? (0-3)", {
     defaultValue: "3",
     validator: (v) => {
       const num = parseInt(v, 10);
@@ -190,19 +185,19 @@ async function promptGeneralConfig(
       }
       return true;
     },
-  });
+  }), 10);
 
   const excludeList = await promptCommaList("Exclude specific items?");
 
   return {
-    auraMultiplier: typeof auraMultiplier === "string" ? parseFloat(auraMultiplier) : auraMultiplier,
-    itemCount: typeof itemCount === "string" ? parseInt(itemCount, 10) : itemCount,
-    resultLimit: typeof resultLimit === "string" ? parseInt(resultLimit, 10) : resultLimit,
+    auraMultiplier,
+    itemCount,
+    resultLimit,
     beamWidth,
-    minReuse: typeof minReuse === "string" ? parseFloat(minReuse) : minReuse,
-    targetCoverage: typeof targetCoverage === "string" ? parseFloat(targetCoverage) : targetCoverage,
-    inventorySlots: typeof inventorySlots === "string" ? parseInt(inventorySlots, 10) : inventorySlots,
-    backpackSlots: typeof backpackSlots === "string" ? parseInt(backpackSlots, 10) : backpackSlots,
+    minReuse,
+    targetCoverage,
+    inventorySlots,
+    backpackSlots,
     exclude: excludeList.length > 0 ? excludeList : undefined,
   };
 }
@@ -223,7 +218,7 @@ async function promptNumberOfStages(): Promise<number> {
     },
   });
 
-  return typeof result === "string" ? parseInt(result, 10) : result;
+  return parseInt(result, 10);
 }
 
 /**
@@ -239,34 +234,35 @@ async function promptStages(numStages: number): Promise<StageDefinition[]> {
   console.log("");
   const stages: StageDefinition[] = [];
   let bootAlreadyRequired = false;
+  let bootStageIndex = -1;
 
   for (let i = 0; i < numStages; i++) {
     console.log("");
     console.log(`═══ STAGE ${i + 1} ═══`);
 
-    const defaultCost = i === 0 ? "2000" : String(parseInt((stages[i - 1].maxCost || 2000) as string, 10) + 2000);
+    const previousCost = i > 0 ? stages[i - 1].maxCost : 0;
+    const defaultCost = previousCost + 2000;
 
-    const maxCost = await promptNumber(`Max cost for stage ${i + 1}? (gold)`, {
-      defaultValue: defaultCost,
+    const maxCost = parseInt(await promptNumber(`Max cost for stage ${i + 1}? (gold)`, {
+      defaultValue: String(defaultCost),
       validator: (v) => {
         const num = parseInt(v, 10);
-        const previousCost = i > 0 ? (stages[i - 1].maxCost as number) : 0;
         if (isNaN(num) || num <= previousCost) {
           return `Must be greater than ${previousCost}`;
         }
         return true;
       },
-    });
+    }), 10);
 
     const requiredItems = await promptCommaList(
-      `Required items for stage ${i + 1}? (optional)`
+      `Required items for stage ${i + 1}?`
     );
 
     const excludedItems = await promptCommaList(
-      `Excluded items for stage ${i + 1}? (optional)`
+      `Excluded items for stage ${i + 1}?`
     );
 
-    let requireBoots: number | undefined = undefined;
+    let requireBoots: boolean | undefined = undefined;
 
     if (!bootAlreadyRequired) {
       const wantBoots = await promptConfirm(
@@ -275,28 +271,20 @@ async function promptStages(numStages: number): Promise<StageDefinition[]> {
       );
 
       if (wantBoots) {
-        requireBoots = i;
+        requireBoots = true;
         bootAlreadyRequired = true;
+        bootStageIndex = i;
       }
     } else {
-      console.log(`ℹ Boots already required from stage ${stages.findIndex((s) => s.requireBoots !== undefined) + 1}`);
+      console.log(`ℹ Boots already required from stage ${bootStageIndex + 1}`);
     }
 
     const stage: StageDefinition = {
-      maxCost: typeof maxCost === "string" ? parseInt(maxCost, 10) : maxCost,
+      maxCost,
+      requiredItems: requiredItems.length > 0 ? requiredItems : undefined,
+      excludedItems: excludedItems.length > 0 ? excludedItems : undefined,
+      requireBoots,
     };
-
-    if (requiredItems.length > 0) {
-      stage.requiredItems = requiredItems;
-    }
-
-    if (excludedItems.length > 0) {
-      stage.excludedItems = excludedItems;
-    }
-
-    if (requireBoots !== undefined) {
-      stage.requireBoots = requireBoots;
-    }
 
     stages.push(stage);
   }

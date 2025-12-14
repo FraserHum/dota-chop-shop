@@ -11,7 +11,7 @@ import { text, select, confirm, isCancel, cancel } from "@clack/prompts";
  * Format a value as a hint string for display in prompts.
  * Used to show default values in grey text.
  */
-export function formatDefaultHint(value: any): string {
+export function formatDefaultHint(value: unknown): string {
   if (value === undefined || value === null) {
     return "none";
   }
@@ -40,15 +40,15 @@ export async function promptNumber(
 ): Promise<string> {
   const { defaultValue, validator, placeholder } = options ?? {};
 
-  const hint =
-    defaultValue !== undefined ? `default: ${defaultValue}` : undefined;
+  // Include default in message since @clack/prompts doesn't have hint
+  const messageWithDefault =
+    defaultValue !== undefined ? `${message} (default: ${defaultValue})` : message;
 
   const result = await text({
-    message,
-    hint,
+    message: messageWithDefault,
     defaultValue: String(defaultValue ?? ""),
     placeholder,
-    validate: (v) => {
+    validate: (v: string) => {
       // If empty and we have a default, it's valid (will use default)
       if (v.trim() === "" && defaultValue !== undefined) {
         return undefined;
@@ -74,7 +74,7 @@ export async function promptNumber(
   }
 
   // If user pressed enter without typing, return default
-  if (result.trim() === "" && defaultValue !== undefined) {
+  if ((result as string).trim() === "" && defaultValue !== undefined) {
     return String(defaultValue);
   }
 
@@ -96,14 +96,15 @@ export async function promptString(
 ): Promise<string> {
   const { defaultValue, validator, placeholder } = options ?? {};
 
-  const hint = defaultValue !== undefined ? `default: ${defaultValue}` : undefined;
+  // Include default in message since @clack/prompts doesn't have hint
+  const messageWithDefault =
+    defaultValue !== undefined ? `${message} (default: ${defaultValue})` : message;
 
   const result = await text({
-    message,
-    hint,
+    message: messageWithDefault,
     defaultValue,
     placeholder,
-    validate: (v) => {
+    validate: (v: string) => {
       // If empty and we have a default, it's valid (will use default)
       if (v.trim() === "" && defaultValue !== undefined) {
         return undefined;
@@ -124,7 +125,7 @@ export async function promptString(
   }
 
   // If user pressed enter without typing, return default
-  if (result.trim() === "" && defaultValue !== undefined) {
+  if ((result as string).trim() === "" && defaultValue !== undefined) {
     return defaultValue;
   }
 
@@ -154,23 +155,16 @@ export async function promptConfirm(
 /**
  * Prompt for a single selection from a list of options.
  */
-export async function promptSelect<T>(
+export async function promptSelect<T extends string>(
   message: string,
   options: Array<{ value: T; label: string; hint?: string }>,
   defaultValue?: T
 ): Promise<T> {
-  const defaultIndex = defaultValue
-    ? options.findIndex((opt) => opt.value === defaultValue)
-    : 0;
-
+  // Cast to any to bypass complex Option<T> type issues
   const result = await select({
     message,
-    options: options.map((opt) => ({
-      value: opt.value,
-      label: opt.label,
-      hint: opt.hint,
-    })),
-    initialValue: defaultIndex >= 0 ? defaultIndex : 0,
+    options: options as any,
+    initialValue: defaultValue,
   });
 
   if (isCancel(result)) {
@@ -198,14 +192,15 @@ export async function promptCommaList(
 
   const defaultStr =
     defaultValue && defaultValue.length > 0 ? defaultValue.join(", ") : "";
-  const hint =
+  
+  // Include default in message
+  const messageWithDefault =
     defaultValue && defaultValue.length > 0
-      ? `default: ${defaultValue.join(", ")}`
-      : "default: none";
+      ? `${message} (default: ${defaultValue.join(", ")})`
+      : `${message} (default: none)`;
 
   const result = await text({
-    message,
-    hint,
+    message: messageWithDefault,
     defaultValue: defaultStr,
     placeholder: placeholder ?? "item1, item2, item3",
   });
