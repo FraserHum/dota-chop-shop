@@ -8,7 +8,6 @@
     "chop-shop": "src/cli/index.ts"
   },
   "scripts": {
-    "install": "bun install",
     "start": "bun run src/cli/index.ts",
     "dev": "bun run --watch src/cli/index.ts",
     "test": "bun test",
