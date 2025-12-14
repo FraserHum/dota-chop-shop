@@ -28,14 +28,15 @@ program
     "after",
     `
 Examples:
-  $ dota-chop                         Analyze default 3-stage build progression (1500g, 2500g, 4000g)
-  $ dota-chop -t 2000,4000,7000       Analyze custom cost thresholds
-  $ dota-chop --targets "Force Staff,Skadi"
-                                      Find optimal path to target items
-  $ dota-chop --aura 2.5              Analyze progression with 2.5x aura multiplier
-  $ dota-chop efficiency              Show item efficiency rankings
-  $ dota-chop transitions --type pair Show pair transitions only
-  $ dota-chop all                     Run full analysis (efficiency, transitions, reachability)
+  $ dota-chop progression              Analyze default 3-stage build progression (1500g, 2500g, 4000g)
+  $ dota-chop progression -t 2000,4000,7000
+                                       Analyze custom cost thresholds
+  $ dota-chop progression --targets "Force Staff,Skadi"
+                                       Find optimal path to target items
+  $ dota-chop --aura 2.5 progression   Analyze progression with 2.5x aura multiplier
+  $ dota-chop efficiency               Show item efficiency rankings
+  $ dota-chop transitions --type pair  Show pair transitions only
+  $ dota-chop all                      Run full analysis (efficiency, transitions, reachability)
 
 Aura Multiplier (use before command):
   1.0  = Solo (only affects yourself) [default]
@@ -305,38 +306,9 @@ program
     }
   });
 
-// Default to progression command if no command specified
-program.action(async function(this: Command, options) {
-  try {
-    const auraMultiplier = getAuraMultiplier(this);
-    const ctx = await initializeContext({
-      auraMultiplier,
-      onProgress: (msg) => console.log(msg),
-    });
-    console.log("");
-    printProgressionAnalysis(ctx, {
-      thresholds: "1500,2500,4000", // Default thresholds
-      targets: undefined,
-      stages: undefined,
-      itemCount: 3,
-      resultLimit: 20,
-      beamWidth: undefined,
-      minReuse: 0.3,
-      targetCoverage: 0.4,
-      exclude: undefined,
-      requireBoots: undefined,
-      componentItems: true,
-      inventorySlots: 6,
-      backpackSlots: 3,
-      summaryOnly: false,
-      detailLimit: 5,
-      verbose: false,
-      quiet: false,
-    });
-  } catch (error) {
-    console.error("Error:", error);
-    process.exit(1);
-  }
+// Default to showing help if no command specified
+program.action(function(this: Command) {
+  this.help();
 });
 
 program.parse();
