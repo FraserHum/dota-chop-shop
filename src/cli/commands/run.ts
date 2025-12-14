@@ -20,7 +20,7 @@ import {
   formatProgressionStats,
 } from "../../calculators/buildProgression";
 import { BuildProgressionOptions, StageDefinition } from "../../models/buildTypes";
-import { intro, outro, spinner } from "@clack/prompts";
+import { intro, outro, spinner, log, note } from "@clack/prompts";
 
 /**
  * Main entry point for interactive run command
@@ -29,13 +29,15 @@ export async function printInteractiveRun(
   ctx: CliContext,
   prefilledAura?: number
 ): Promise<void> {
-  intro("Welcome to chop-shop interactive mode!");
+  intro("chop-shop interactive mode");
 
   try {
     // Phase 1: Collect general configuration
+    log.step("General Configuration");
     const generalConfig = await promptGeneralConfig(prefilledAura);
 
     // Phase 2: Get number of stages
+    log.step("Stage Configuration");
     const numStages = await promptNumberOfStages();
 
     // Phase 3: Configure each stage
@@ -62,14 +64,13 @@ export async function printInteractiveRun(
     const result = analyzeProgression(ctx.items, ctx.config, options, ctx.repo);
 
     s.stop("Analysis complete!");
-    console.log("");
 
     // Display results
-    console.log(formatProgressionStats(result.stats));
+    note(formatProgressionStats(result.stats), "Summary Statistics");
     console.log("");
     console.log(formatProgression(result, false));
 
-    outro("Analysis complete!");
+    outro("Done!");
   } catch (error) {
     if (error instanceof Error && error.message.includes("cancelled")) {
       outro("Cancelled");
@@ -95,8 +96,6 @@ async function promptGeneralConfig(
   backpackSlots: number;
   exclude?: string[];
 }> {
-  console.log("");
-
   const auraMultiplier =
     prefilledAura ??
     parseFloat(await promptNumber("Aura Multiplier?", {
@@ -206,8 +205,7 @@ async function promptGeneralConfig(
  * Phase 2: Get number of stages
  */
 async function promptNumberOfStages(): Promise<number> {
-  console.log("");
-  const result = await promptNumber("How many stages do you want to analyze?", {
+  const result = await promptNumber("How many stages?", {
     defaultValue: "3",
     validator: (v) => {
       const num = parseInt(v, 10);
@@ -231,19 +229,17 @@ async function promptNumberOfStages(): Promise<number> {
  * - Whether boots should be required at this stage
  */
 async function promptStages(numStages: number): Promise<StageDefinition[]> {
-  console.log("");
   const stages: StageDefinition[] = [];
   let bootAlreadyRequired = false;
   let bootStageIndex = -1;
 
   for (let i = 0; i < numStages; i++) {
-    console.log("");
-    console.log(`═══ STAGE ${i + 1} ═══`);
+    log.message(`Stage ${i + 1} of ${numStages}`);
 
     const previousCost = i > 0 ? stages[i - 1].maxCost : 0;
     const defaultCost = previousCost + 2000;
 
-    const maxCost = parseInt(await promptNumber(`Max cost for stage ${i + 1}? (gold)`, {
+    const maxCost = parseInt(await promptNumber(`Max cost? (gold)`, {
       defaultValue: String(defaultCost),
       validator: (v) => {
         const num = parseInt(v, 10);
@@ -254,21 +250,14 @@ async function promptStages(numStages: number): Promise<StageDefinition[]> {
       },
     }), 10);
 
-    const requiredItems = await promptCommaList(
-      `Required items for stage ${i + 1}?`
-    );
+    const requiredItems = await promptCommaList(`Required items?`);
 
-    const excludedItems = await promptCommaList(
-      `Excluded items for stage ${i + 1}?`
-    );
+    const excludedItems = await promptCommaList(`Excluded items?`);
 
     let requireBoots: boolean | undefined = undefined;
 
     if (!bootAlreadyRequired) {
-      const wantBoots = await promptConfirm(
-        `Require boots at stage ${i + 1}?`,
-        false
-      );
+      const wantBoots = await promptConfirm(`Require boots?`, false);
 
       if (wantBoots) {
         requireBoots = true;
@@ -276,7 +265,7 @@ async function promptStages(numStages: number): Promise<StageDefinition[]> {
         bootStageIndex = i;
       }
     } else {
-      console.log(`ℹ Boots already required from stage ${bootStageIndex + 1}`);
+      log.info(`Boots already required from stage ${bootStageIndex + 1}`);
     }
 
     const stage: StageDefinition = {
