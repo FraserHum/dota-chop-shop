@@ -305,9 +305,38 @@ program
     }
   });
 
-// Default to showing help if no command specified
-program.action(() => {
-  program.help();
+// Default to progression command if no command specified
+program.action(async function(this: Command, options) {
+  try {
+    const auraMultiplier = getAuraMultiplier(this);
+    const ctx = await initializeContext({
+      auraMultiplier,
+      onProgress: (msg) => console.log(msg),
+    });
+    console.log("");
+    printProgressionAnalysis(ctx, {
+      thresholds: "1500,2500,4000", // Default thresholds
+      targets: undefined,
+      stages: undefined,
+      itemCount: 3,
+      resultLimit: 20,
+      beamWidth: undefined,
+      minReuse: 0.3,
+      targetCoverage: 0.4,
+      exclude: undefined,
+      requireBoots: undefined,
+      componentItems: true,
+      inventorySlots: 6,
+      backpackSlots: 3,
+      summaryOnly: false,
+      detailLimit: 5,
+      verbose: false,
+      quiet: false,
+    });
+  } catch (error) {
+    console.error("Error:", error);
+    process.exit(1);
+  }
 });
 
 program.parse();

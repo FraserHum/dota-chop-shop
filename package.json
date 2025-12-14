@@ -10,13 +10,6 @@
   "scripts": {
     "start": "bun run src/cli/index.ts",
     "dev": "bun run --watch src/cli/index.ts",
-    "cli": "bun run src/cli/index.ts",
-    "all": "bun run src/cli/index.ts all",
-    "transitions": "bun run src/cli/index.ts transitions",
-    "efficiency": "bun run src/cli/index.ts efficiency",
-    "pathfind": "bun run src/cli/index.ts pathfind",
-    "sequences": "bun run src/cli/index.ts sequences",
-    "reachability": "bun run src/cli/index.ts reachability",
     "test": "bun test",
     "test:watch": "bun test --watch",
     "typecheck": "bun x tsc --noEmit"

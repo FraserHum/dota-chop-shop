@@ -1,5 +1,7 @@
 # Agent Guidelines for dota-chop-shop
 
+**IMPORTANT**: Use the correct directory: `/Users/fraser/workspace/github.com/fraserhum/dota-chop-shop` (NOT frasershop)
+
 ## Build/Test/Lint Commands
 
 ```bash
