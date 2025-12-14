@@ -16,7 +16,7 @@ import { printProgressionAnalysis } from "./commands/progression";
 const program = new Command();
 
 program
-  .name("dota-chop")
+  .name("chop-shop")
   .description("Dota 2 Item Cost Efficiency Calculator and Build Path Analyzer")
   .version("1.0.0")
   .option(
@@ -28,15 +28,15 @@ program
     "after",
     `
 Examples:
-  $ dota-chop progression              Analyze default 3-stage build progression (1500g, 2500g, 4000g)
-  $ dota-chop progression -t 2000,4000,7000
+  $ chop-shop progression              Analyze default 3-stage build progression (1500g, 2500g, 4000g)
+  $ chop-shop progression -t 2000,4000,7000
                                        Analyze custom cost thresholds
-  $ dota-chop progression --targets "Force Staff,Skadi"
+  $ chop-shop progression --targets "Force Staff,Skadi"
                                        Find optimal path to target items
-  $ dota-chop --aura 2.5 progression   Analyze progression with 2.5x aura multiplier
-  $ dota-chop efficiency               Show item efficiency rankings
-  $ dota-chop transitions --type pair  Show pair transitions only
-  $ dota-chop all                      Run full analysis (efficiency, transitions, reachability)
+  $ chop-shop --aura 2.5 progression   Analyze progression with 2.5x aura multiplier
+  $ chop-shop efficiency               Show item efficiency rankings
+  $ chop-shop transitions --type pair  Show pair transitions only
+  $ chop-shop all                      Run full analysis (efficiency, transitions, reachability)
 
 Aura Multiplier (use before command):
   1.0  = Solo (only affects yourself) [default]
@@ -188,22 +188,22 @@ program
     `
 Examples:
   # Cost-based progression (like sequences command):
-  $ dota-chop progression -t 2000,4000,7000
+  $ chop-shop progression -t 2000,4000,7000
 
   # Target-based progression (find path to items):
-  $ dota-chop progression --targets "Force Staff,Skadi"
+  $ chop-shop progression --targets "Force Staff,Skadi"
 
   # Incremental target acquisition:
-  $ dota-chop progression --targets "Force Staff,Skadi" -t 2000,4500,10000
+  $ chop-shop progression --targets "Force Staff,Skadi" -t 2000,4500,10000
 
   # Custom stage definitions (full control):
-  $ dota-chop progression --stages '[{"maxCost":3000},{"maxCost":6000,"requiredItems":["Force Staff"]}]'
+  $ chop-shop progression --stages '[{"maxCost":3000},{"maxCost":6000,"requiredItems":["Force Staff"]}]'
 
   # With inventory/backpack limits and component items:
-  $ dota-chop progression -t 2000,4000,7000 --inventory-slots 5 --backpack-slots 2
+  $ chop-shop progression -t 2000,4000,7000 --inventory-slots 5 --backpack-slots 2
 
   # Exclude specific items:
-  $ dota-chop progression --targets "BKB" -x "Ogre Axe"
+  $ chop-shop progression --targets "BKB" -x "Ogre Axe"
 
 Modes:
   --thresholds only    : Pure cost-based progression (like sequences)
