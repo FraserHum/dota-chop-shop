@@ -28,14 +28,14 @@ program
     "after",
     `
 Examples:
-  $ dota-chop efficiency              Show item efficiency rankings
-  $ dota-chop --aura 2.5 efficiency   Account for auras benefiting ~2.5 heroes
-  $ dota-chop transitions --type pair Show pair transitions only
-  $ dota-chop progression -t 2000,4000,7000
-                                      Analyze multi-stage build progression
-  $ dota-chop progression --targets "Force Staff,Skadi"
+  $ dota-chop                         Analyze default 3-stage build progression (1500g, 2500g, 4000g)
+  $ dota-chop -t 2000,4000,7000       Analyze custom cost thresholds
+  $ dota-chop --targets "Force Staff,Skadi"
                                       Find optimal path to target items
-  $ dota-chop --aura 3 all            Run full analysis with 3x aura multiplier
+  $ dota-chop --aura 2.5              Analyze progression with 2.5x aura multiplier
+  $ dota-chop efficiency              Show item efficiency rankings
+  $ dota-chop transitions --type pair Show pair transitions only
+  $ dota-chop all                     Run full analysis (efficiency, transitions, reachability)
 
 Aura Multiplier (use before command):
   1.0  = Solo (only affects yourself) [default]
