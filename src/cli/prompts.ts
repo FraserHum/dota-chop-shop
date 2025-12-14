@@ -47,7 +47,7 @@ export async function promptNumber(
     message,
     hint,
     defaultValue: String(defaultValue ?? ""),
-    placeholder: placeholder ?? "0",
+    placeholder,
     validate: (v) => {
       // If empty and we have a default, it's valid (will use default)
       if (v.trim() === "" && defaultValue !== undefined) {
