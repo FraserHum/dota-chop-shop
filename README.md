@@ -32,14 +32,45 @@ bun install
 bun test
 ```
 
+### Making the `chop-shop` Command Available
+
+After installation, you can use the CLI in two ways:
+
+**Option 1: Using `bun run` (recommended for development)**
+```bash
+bun run src/cli/index.ts progression -t 1500,2500,4000
+# or use the start script
+bun run start
+```
+
+**Option 2: Creating a Global Command**
+
+To make `chop-shop` available as a command anywhere:
+
+```bash
+# From the project directory, link the package
+bun link
+
+# Now you can use chop-shop from anywhere
+chop-shop progression -t 1500,2500,4000
+chop-shop --help
+```
+
+To unlink:
+```bash
+bun unlink dota-chop-shop
+```
+
 ## Quick Start
+
+All examples below use `chop-shop`. If you're using `bun run`, replace `chop-shop` with `bun run src/cli/index.ts`.
 
 ### Basic Cost-Based Progression
 
 Analyze item builds at multiple cost thresholds:
 
 ```bash
-bun run src/cli/index.ts progression -t 1500,2500,4000
+chop-shop progression -t 1500,2500,4000
 ```
 
 This finds optimal items to buy at 1500g, 2500g, and 4000g.
@@ -49,7 +80,7 @@ This finds optimal items to buy at 1500g, 2500g, and 4000g.
 Plan a path to acquire specific items:
 
 ```bash
-bun run src/cli/index.ts progression --targets "Force Staff,Skadi"
+chop-shop progression --targets "Force Staff,Skadi"
 ```
 
 ### Incremental Target Acquisition
@@ -57,7 +88,7 @@ bun run src/cli/index.ts progression --targets "Force Staff,Skadi"
 Acquire different items at each stage:
 
 ```bash
-bun run src/cli/index.ts progression \
+chop-shop progression \
   --targets "Force Staff,Skadi" \
   -t 3000,6000,10000
 ```
@@ -69,7 +100,7 @@ Acquires Force Staff by 3000g, Skadi by 6000g, and optimizes remaining build by 
 Full control over stage constraints:
 
 ```bash
-bun run src/cli/index.ts progression --stages \
+chop-shop progression --stages \
   '[
     {"maxCost":2000},
     {"maxCost":5000,"requiredItems":["Force Staff"]},
@@ -82,7 +113,7 @@ bun run src/cli/index.ts progression --stages \
 Simulate realistic inventory limits:
 
 ```bash
-bun run src/cli/index.ts progression \
+chop-shop progression \
   -t 2000,4000,7000 \
   --inventory-slots 5 \
   --backpack-slots 2
@@ -143,7 +174,7 @@ Each stage is a JSON object with the following fields:
 **Example multi-stage definition:**
 
 ```bash
-bun run src/cli/index.ts progression --stages \
+chop-shop progression --stages \
   '[
     {"maxCost": 1500},
     {"maxCost": 3500, "requiredItems": ["Force Staff"]},
@@ -227,7 +258,7 @@ Higher scores indicate better value:
 ### Support Hero (Limited Budget)
 
 ```bash
-bun run src/cli/index.ts progression \
+chop-shop progression \
   -t 2000,4000,6000 \
   -i 2 \
   --exclude "Radiance,Divine Rapier"
@@ -236,7 +267,7 @@ bun run src/cli/index.ts progression \
 ### Core Hero (Flex Items)
 
 ```bash
-bun run src/cli/index.ts progression \
+chop-shop progression \
   -t 3000,6000,10000 \
   -i 3 \
   --targets "Black King Bar,Butterfly"
@@ -245,7 +276,7 @@ bun run src/cli/index.ts progression \
 ### Tight Inventory Slots
 
 ```bash
-bun run src/cli/index.ts progression \
+chop-shop progression \
   -t 2000,4000,7000 \
   --inventory-slots 2 \
   --backpack-slots 1
