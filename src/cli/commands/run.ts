@@ -58,17 +58,23 @@ export async function printInteractiveRun(
     };
 
     // Run analysis
+    log.step("Running Analysis");
     const s = spinner();
     s.start("Analyzing progression...");
 
-    const result = analyzeProgression(ctx.items, ctx.config, options, ctx.repo);
+    try {
+      const result = analyzeProgression(ctx.items, ctx.config, options, ctx.repo);
+      s.stop("Analysis complete!");
 
-    s.stop("Analysis complete!");
-
-    // Display results
-    note(formatProgressionStats(result.stats), "Summary Statistics");
-    console.log("");
-    console.log(formatProgression(result, false));
+      // Display results
+      note(formatProgressionStats(result.stats), "Summary Statistics");
+      console.log("");
+      console.log(formatProgression(result, false));
+    } catch (analysisError) {
+      s.stop("Analysis failed!");
+      log.error(String(analysisError));
+      throw analysisError;
+    }
 
     outro("Done!");
   } catch (error) {
