@@ -1,8 +1,8 @@
 /**
  * Interactive Run Command
  *
- * Guides users through a step-by-step interactive flow to build a custom
- * progression analysis without needing to know command-line syntax.
+ * Guides users through a step-by-step interactive flow to configure
+ * and run a progression analysis.
  *
  * Uses @clack/prompts for beautiful, accessible terminal UI.
  */
@@ -11,22 +11,16 @@ import { CliContext } from "../context";
 import {
   promptNumber,
   promptString,
-  promptSelect,
   promptConfirm,
   promptCommaList,
 } from "../prompts";
 import {
   analyzeProgression,
-  stagesFromCosts,
-  stagesForTargets,
-  stagesForIncrementalTargets,
   formatProgression,
   formatProgressionStats,
 } from "../../calculators/buildProgression";
 import { BuildProgressionOptions, StageDefinition } from "../../models/buildTypes";
 import { intro, outro, spinner } from "@clack/prompts";
-
-type StageMethod = "thresholds" | "targets" | "combined" | "custom";
 
 /**
  * Main entry point for interactive run command
@@ -38,58 +32,30 @@ export async function printInteractiveRun(
   intro("Welcome to chop-shop interactive mode!");
 
   try {
-    // Phase 1: Collect general flags
-    const generalFlags = await promptGeneralFlags(prefilledAura);
+    // Phase 1: Collect general configuration
+    const generalConfig = await promptGeneralConfig(prefilledAura);
 
-    // Phase 2: Choose stage definition method
-    const stageMethod = await promptStageMethod();
+    // Phase 2: Get number of stages
+    const numStages = await promptNumberOfStages();
 
-    // Phase 3 & 4: Get stages based on method
-    let stages: StageDefinition[] = [];
-
-    switch (stageMethod) {
-      case "thresholds": {
-        const numStages = await promptNumberOfStages();
-        const costs = await promptCostThresholds(numStages);
-        stages = stagesFromCosts(costs);
-        break;
-      }
-
-      case "targets": {
-        const targets = await promptTargetItems();
-        stages = stagesForTargets(targets);
-        break;
-      }
-
-      case "combined": {
-        const numStages = await promptNumberOfStages();
-        const targets = await promptIncrementalTargets(numStages);
-        const costs = await promptCostThresholds(numStages);
-        stages = stagesForIncrementalTargets(targets, costs);
-        break;
-      }
-
-      case "custom": {
-        stages = await promptCustomStages();
-        break;
-      }
-    }
+    // Phase 3: Configure each stage
+    const stages = await promptStages(numStages);
 
     // Build final options
     const options: BuildProgressionOptions = {
-      auraMultiplier: generalFlags.auraMultiplier,
-      itemCount: generalFlags.itemCount,
-      resultLimit: generalFlags.resultLimit,
-      beamWidth: generalFlags.beamWidth,
-      minReuse: generalFlags.minReuse,
-      targetCoverage: generalFlags.targetCoverage,
-      inventorySlots: generalFlags.inventorySlots,
-      backpackSlots: generalFlags.backpackSlots,
-      exclude: generalFlags.exclude,
+      auraMultiplier: generalConfig.auraMultiplier,
+      itemCount: generalConfig.itemCount,
+      resultLimit: generalConfig.resultLimit,
+      beamWidth: generalConfig.beamWidth,
+      minReuse: generalConfig.minReuse,
+      targetCoverage: generalConfig.targetCoverage,
+      inventorySlots: generalConfig.inventorySlots,
+      backpackSlots: generalConfig.backpackSlots,
+      exclude: generalConfig.exclude,
       stages,
       slotOptions: {
-        inventorySlots: generalFlags.inventorySlots,
-        backpackSlots: generalFlags.backpackSlots,
+        inventorySlots: generalConfig.inventorySlots,
+        backpackSlots: generalConfig.backpackSlots,
       },
       onProgress: (msg) => console.log(msg),
     };
@@ -106,7 +72,7 @@ export async function printInteractiveRun(
     // Display results
     console.log(formatProgressionStats(result));
     console.log("");
-    console.log(formatProgression(result, 20));
+    console.log(formatProgression(result, generalConfig.resultLimit));
 
     outro("Analysis complete!");
   } catch (error) {
@@ -119,9 +85,9 @@ export async function printInteractiveRun(
 }
 
 /**
- * Phase 1: Prompt for general flags
+ * Phase 1: Prompt for general configuration (applies to all stages)
  */
-async function promptGeneralFlags(
+async function promptGeneralConfig(
   prefilledAura?: number
 ): Promise<{
   auraMultiplier: number;
@@ -139,7 +105,7 @@ async function promptGeneralFlags(
   const auraMultiplier =
     prefilledAura ??
     (await promptNumber("Aura Multiplier?", {
-      defaultValue: 1.0,
+      defaultValue: "1.0",
       validator: (v) => {
         const num = parseFloat(v);
         if (isNaN(num) || num < 0.5 || num > 10) {
@@ -242,38 +208,7 @@ async function promptGeneralFlags(
 }
 
 /**
- * Phase 2: Choose stage definition method
- */
-async function promptStageMethod(): Promise<StageMethod> {
-  console.log("");
-  const method = await promptSelect<StageMethod>(
-    "How would you like to define stages?",
-    [
-      {
-        value: "thresholds",
-        label: "Cost thresholds (e.g., 2000g, 4000g, 7000g)",
-      },
-      {
-        value: "targets",
-        label: "Target items (e.g., Force Staff, Skadi)",
-      },
-      {
-        value: "combined",
-        label: "Combined (both cost thresholds and target items)",
-      },
-      {
-        value: "custom",
-        label: "Custom JSON (full control)",
-      },
-    ],
-    "thresholds"
-  );
-
-  return method;
-}
-
-/**
- * Phase 3: Get number of stages
+ * Phase 2: Get number of stages
  */
 async function promptNumberOfStages(): Promise<number> {
   console.log("");
@@ -292,20 +227,30 @@ async function promptNumberOfStages(): Promise<number> {
 }
 
 /**
- * Get cost threshold for each stage
+ * Phase 3: Configure each stage
+ *
+ * For each stage, ask:
+ * - Max cost
+ * - Required items (optional)
+ * - Excluded items (optional)
+ * - Whether boots should be required at this stage
  */
-async function promptCostThresholds(numStages: number): Promise<number[]> {
+async function promptStages(numStages: number): Promise<StageDefinition[]> {
   console.log("");
-  const costs: number[] = [];
-  let previousCost = 0;
+  const stages: StageDefinition[] = [];
+  let bootAlreadyRequired = false;
 
   for (let i = 0; i < numStages; i++) {
-    const defaultCost = previousCost + (i === 0 ? 2000 : 2000);
+    console.log("");
+    console.log(`═══ STAGE ${i + 1} ═══`);
 
-    const result = await promptNumber(`Max cost for stage ${i + 1}? (gold)`, {
-      defaultValue: String(defaultCost),
+    const defaultCost = i === 0 ? "2000" : String(parseInt((stages[i - 1].maxCost || 2000) as string, 10) + 2000);
+
+    const maxCost = await promptNumber(`Max cost for stage ${i + 1}? (gold)`, {
+      defaultValue: defaultCost,
       validator: (v) => {
         const num = parseInt(v, 10);
+        const previousCost = i > 0 ? (stages[i - 1].maxCost as number) : 0;
         if (isNaN(num) || num <= previousCost) {
           return `Must be greater than ${previousCost}`;
         }
@@ -313,60 +258,48 @@ async function promptCostThresholds(numStages: number): Promise<number[]> {
       },
     });
 
-    const cost = typeof result === "string" ? parseInt(result, 10) : result;
-    costs.push(cost);
-    previousCost = cost;
-  }
+    const requiredItems = await promptCommaList(
+      `Required items for stage ${i + 1}? (optional)`
+    );
 
-  return costs;
-}
+    const excludedItems = await promptCommaList(
+      `Excluded items for stage ${i + 1}? (optional)`
+    );
 
-/**
- * Get target items for incremental acquisition
- */
-async function promptTargetItems(): Promise<string[]> {
-  console.log("");
-  return await promptCommaList("Target items to acquire?");
-}
+    let requireBoots: number | undefined = undefined;
 
-/**
- * Get target items per stage for combined method
- */
-async function promptIncrementalTargets(numStages: number): Promise<string[]> {
-  console.log("");
-  const targets: string[] = [];
+    if (!bootAlreadyRequired) {
+      const wantBoots = await promptConfirm(
+        `Require boots at stage ${i + 1}?`,
+        false
+      );
 
-  for (let i = 0; i < numStages; i++) {
-    const target = await promptString(`Target item for stage ${i + 1}?`, {
-      defaultValue: "",
-      placeholder: "optional",
-    });
-
-    if (target.trim()) {
-      targets.push(target.trim());
+      if (wantBoots) {
+        requireBoots = i;
+        bootAlreadyRequired = true;
+      }
+    } else {
+      console.log(`ℹ Boots already required from stage ${stages.findIndex((s) => s.requireBoots !== undefined) + 1}`);
     }
-  }
 
-  return targets;
-}
+    const stage: StageDefinition = {
+      maxCost: typeof maxCost === "string" ? parseInt(maxCost, 10) : maxCost,
+    };
 
-/**
- * Get custom JSON stage definitions
- */
-async function promptCustomStages(): Promise<StageDefinition[]> {
-  console.log("");
-  const jsonInput = await promptString(
-    "Paste JSON stage definitions (or path to file):",
-    {
-      defaultValue: '[]',
+    if (requiredItems.length > 0) {
+      stage.requiredItems = requiredItems;
     }
-  );
 
-  try {
-    // Try parsing as JSON first
-    return JSON.parse(jsonInput) as StageDefinition[];
-  } catch {
-    // If that fails, might be a file path
-    throw new Error("Invalid JSON format. Please provide valid JSON array.");
+    if (excludedItems.length > 0) {
+      stage.excludedItems = excludedItems;
+    }
+
+    if (requireBoots !== undefined) {
+      stage.requireBoots = requireBoots;
+    }
+
+    stages.push(stage);
   }
+
+  return stages;
 }
