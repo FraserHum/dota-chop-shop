@@ -49,6 +49,8 @@ export interface AnalysisConfig {
   bootItems: string[];
   /** Key utility items to analyze regardless of cost */
   keyUtilityItems: string[];
+  /** Items to exclude from analysis (unreleased, test items, etc.) */
+  excludedItems: string[];
 }
 
 /**
@@ -105,6 +107,9 @@ export const DEFAULT_CONFIG: AnalysisConfig = {
     "holy_locket",
     "veil_of_discord",
   ],
+  excludedItems: [
+    "witches_switch", // Unreleased item
+  ],
 };
 
 /**
@@ -117,6 +122,9 @@ export function mergeConfig(partial: Partial<AnalysisConfig> = {}): AnalysisConf
     trioSynergyWeights: { ...DEFAULT_CONFIG.trioSynergyWeights, ...partial.trioSynergyWeights },
     bootItems: partial.bootItems ?? DEFAULT_CONFIG.bootItems,
     keyUtilityItems: partial.keyUtilityItems ?? DEFAULT_CONFIG.keyUtilityItems,
+    excludedItems: partial.excludedItems 
+      ? [...DEFAULT_CONFIG.excludedItems, ...partial.excludedItems]
+      : DEFAULT_CONFIG.excludedItems,
   };
 }
 
@@ -125,4 +133,11 @@ export function mergeConfig(partial: Partial<AnalysisConfig> = {}): AnalysisConf
  */
 export function isBootItem(itemName: string, config: AnalysisConfig = DEFAULT_CONFIG): boolean {
   return config.bootItems.includes(itemName);
+}
+
+/**
+ * Helper to check if an item should be excluded from analysis
+ */
+export function isExcludedItem(itemName: string, config: AnalysisConfig = DEFAULT_CONFIG): boolean {
+  return config.excludedItems.includes(itemName);
 }

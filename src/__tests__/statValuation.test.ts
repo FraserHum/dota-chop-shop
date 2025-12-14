@@ -72,6 +72,7 @@ describe("calculateStatValuation", () => {
         stats: { armor: 2 }, // 50g per point (better)
         isComponent: true,
         isConsumable: false,
+      auraStats: {},
         components: [],
       };
       const expensiveArmor: Item = {
@@ -82,6 +83,7 @@ describe("calculateStatValuation", () => {
         stats: { armor: 1 }, // 200g per point (worse)
         isComponent: true,
         isConsumable: false,
+      auraStats: {},
         components: [],
       };
 
@@ -111,6 +113,7 @@ describe("calculateStatValuation", () => {
         stats: { strength: 2, agility: 2 },
         isComponent: true,
         isConsumable: false,
+      auraStats: {},
         components: [],
       };
 
@@ -130,6 +133,7 @@ describe("calculateStatValuation", () => {
         stats: { strength: 2, agility: 2 },
         isComponent: true,
         isConsumable: false,
+      auraStats: {},
         components: [],
       };
 
@@ -156,6 +160,7 @@ describe("calculateStatValuation", () => {
         stats: {},
         isComponent: true,
         isConsumable: false,
+      auraStats: {},
         components: [],
       };
       const valuation = calculateStatValuation([noStatItem]);
@@ -171,6 +176,7 @@ describe("calculateStatValuation", () => {
         stats: { healthRegen: 10 },
         isComponent: true,
         isConsumable: true,
+      auraStats: {},
         components: [],
       };
       const valuation = calculateStatValuation([consumable]);

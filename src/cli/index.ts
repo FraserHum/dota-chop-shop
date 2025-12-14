@@ -212,6 +212,7 @@ program
   .option("-d, --details <number>", "Number of detailed results to show", parseInt, 5)
   .option("-v, --verbose", "Show verbose transition details")
   .option("--quiet", "Suppress progress output")
+  .option("--progress", "Show progress updates during analysis")
   .addHelpText(
     "after",
     `
@@ -297,6 +298,7 @@ Stage Definition Format (--stages JSON):
         detailLimit: options.details,
         verbose: options.verbose,
         quiet: options.quiet,
+        showProgress: options.progress,
       });
     } catch (error) {
       console.error("Error:", error);

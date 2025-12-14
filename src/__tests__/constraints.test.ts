@@ -2,7 +2,7 @@ import { describe, it, expect } from "bun:test";
 import {
   costIncreaseConstraint,
   minCostIncrease,
-  minComponentReuse,
+  minTotalRecovery,
   maxWastedGold,
   maxWastedPercent,
   minFinalItems,
@@ -84,27 +84,27 @@ describe("constraint functions", () => {
     });
   });
 
-  describe("minComponentReuse", () => {
-    it("returns true when reuse >= threshold", () => {
-      // perfectRecoveryItem (str + agi) -> goodRecoveryItem (str + int)
-      // str is reused, agi is wasted
-      // 100g reused out of 200g = 50%
+  describe("minTotalRecovery", () => {
+    it("returns true when total recovery >= threshold", () => {
+      // perfectRecoveryItem (str + agi, no recipe) -> goodRecoveryItem (str + int)
+      // str is reused (100g), agi is wasted (100g), no recipe to recover
+      // Total recovery = (100 + 0) / 200 = 50%
       const transition = makeTransition(
         [perfectRecoveryItem],
         [goodRecoveryItem]
       );
 
-      expect(minComponentReuse(0.5)(transition)).toBe(true);
-      expect(minComponentReuse(0.4)(transition)).toBe(true);
+      expect(minTotalRecovery(0.5)(transition)).toBe(true);
+      expect(minTotalRecovery(0.4)(transition)).toBe(true);
     });
 
-    it("returns false when reuse < threshold", () => {
+    it("returns false when total recovery < threshold", () => {
       const transition = makeTransition(
         [perfectRecoveryItem],
         [goodRecoveryItem]
       );
 
-      expect(minComponentReuse(0.6)(transition)).toBe(false);
+      expect(minTotalRecovery(0.6)(transition)).toBe(false);
     });
 
     it("returns true for empty from loadout", () => {
@@ -112,7 +112,7 @@ describe("constraint functions", () => {
       const to = createLoadout([perfectRecoveryItem], repo);
       const transition = createTransition(from, to, repo);
 
-      expect(minComponentReuse(0.5)(transition)).toBe(true);
+      expect(minTotalRecovery(0.5)(transition)).toBe(true);
     });
   });
 

@@ -67,22 +67,26 @@ export const maxCostIncrease = (max: number): TransitionConstraint => (t) =>
   t.costDelta <= max;
 
 /**
- * Require minimum component reuse percentage.
+ * Require minimum total gold recovery percentage.
  *
- * @param minPercent - Minimum reuse as decimal (0-1), e.g., 0.5 = 50%
- * @returns Constraint that checks reusedGold / fromTotalCost >= minPercent
+ * Includes both component reuse AND recipe recovery (Gyro's innate gives 100% recipe refund).
+ * This measures true gold efficiency - how much of your previous investment you retain.
+ *
+ * @param minPercent - Minimum recovery as decimal (0-1), e.g., 0.5 = 50%
+ * @returns Constraint that checks (reusedGold + recoveredRecipeCost) / fromTotalCost >= minPercent
  *
  * @example
  * ```ts
- * const halfReuse = minComponentReuse(0.5);
- * halfReuse(transition); // true if at least 50% of gold is reused
+ * const halfRecovery = minTotalRecovery(0.5);
+ * halfRecovery(transition); // true if at least 50% of gold is recovered
  * ```
  */
-export const minComponentReuse = (
+export const minTotalRecovery = (
   minPercent: number
 ): TransitionConstraint => (t) => {
   if (t.from.totalCost === 0) return true;
-  return t.componentFlow.reusedGold / t.from.totalCost >= minPercent;
+  const totalRecovered = t.componentFlow.reusedGold + t.componentFlow.recoveredRecipeCost;
+  return totalRecovered / t.from.totalCost >= minPercent;
 };
 
 /**
@@ -234,7 +238,7 @@ export const someFinalItemsMatch = (
  * ```ts
  * const strict = allConstraints(
  *   costIncreaseConstraint,
- *   minComponentReuse(0.5),
+ *   minTotalRecovery(0.5),
  *   maxWastedGold(500)
  * );
  * ```
@@ -254,7 +258,7 @@ export const allConstraints = (
  * ```ts
  * const flexible = anyConstraint(
  *   minCostIncrease(1000),  // Either big profit
- *   minComponentReuse(0.8)  // Or high reuse
+ *   minTotalRecovery(0.8)   // Or high recovery
  * );
  * ```
  */
@@ -306,7 +310,7 @@ export const buildStandardConstraints = (
   }
 
   if ("minComponentReusePercent" in thresholds && typeof thresholds.minComponentReusePercent === "number") {
-    constraints.push(minComponentReuse(thresholds.minComponentReusePercent));
+    constraints.push(minTotalRecovery(thresholds.minComponentReusePercent));
   }
 
   if ("maxWastedGold" in thresholds && typeof thresholds.maxWastedGold === "number") {

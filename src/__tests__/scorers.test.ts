@@ -122,6 +122,7 @@ const basicItem: Item = {
   stats: { strength: 10, agility: 5 },
   isComponent: false,
   isConsumable: false,
+      auraStats: {},
   components: ["comp_a", "comp_b"],
 };
 
@@ -133,6 +134,7 @@ const cheapItem: Item = {
   stats: { strength: 5 },
   isComponent: false,
   isConsumable: false,
+      auraStats: {},
   components: ["comp_a"],
 };
 
@@ -144,6 +146,7 @@ const expensiveItem: Item = {
   stats: { strength: 30, agility: 20, intelligence: 15 },
   isComponent: false,
   isConsumable: false,
+      auraStats: {},
   components: ["comp_a", "comp_b", "comp_c", "comp_d"],
 };
 
@@ -156,6 +159,7 @@ const forceStaffItem: Item = {
   stats: { intelligence: 10, healthRegen: 2 },
   isComponent: false,
   isConsumable: false,
+      auraStats: {},
   components: ["staff_of_wizardry", "fluffy_hat", "recipe"],
 };
 
@@ -167,6 +171,7 @@ const medallionItem: Item = {
   stats: { armor: 5, manaRegen: 0.75 },
   isComponent: false,
   isConsumable: false,
+      auraStats: {},
   components: ["chainmail", "sage_mask"],
 };
 
@@ -178,6 +183,7 @@ const noUtilityItem: Item = {
   stats: { strength: 15 },
   isComponent: false,
   isConsumable: false,
+      auraStats: {},
   components: ["comp_x"],
 };
 

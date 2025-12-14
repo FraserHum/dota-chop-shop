@@ -4,15 +4,32 @@ import { calculateUtilityValue } from "./utility";
 import { orderBy, partition, minBy, maxBy } from "es-toolkit";
 
 /**
+ * Options for efficiency calculation
+ */
+export interface EfficiencyOptions {
+  /**
+   * Multiplier for aura stats to account for team-wide benefit.
+   * 1.0 = solo (only affects yourself)
+   * 2.5 = average teamfight (yourself + ~1.5 teammates in range)
+   * 5.0 = full team (yourself + 4 teammates)
+   * Default: 1.0
+   */
+  auraMultiplier?: number;
+}
+
+/**
  * Calculate the gold efficiency of a single item
  */
 export function calculateItemEfficiency(
   item: Item,
-  statValuation: StatValuation
+  statValuation: StatValuation,
+  options: EfficiencyOptions = {}
 ): EfficiencyResult {
+  const { auraMultiplier = 1.0 } = options;
   const statBreakdown: EfficiencyResult["statBreakdown"] = [];
   let totalStatValue = 0;
 
+  // Process base stats
   for (const [stat, amount] of Object.entries(item.stats) as [keyof ItemStats, number][]) {
     if (amount === undefined || amount === 0) continue;
 
@@ -22,6 +39,23 @@ export function calculateItemEfficiency(
     statBreakdown.push({
       stat,
       amount,
+      goldValue,
+    });
+
+    totalStatValue += goldValue;
+  }
+
+  // Process aura stats with multiplier
+  for (const [stat, amount] of Object.entries(item.auraStats) as [keyof ItemStats, number][]) {
+    if (amount === undefined || amount === 0) continue;
+
+    const goldPerPoint = statValuation[stat] || 0;
+    const effectiveAmount = amount * auraMultiplier;
+    const goldValue = effectiveAmount * goldPerPoint;
+
+    statBreakdown.push({
+      stat,
+      amount: effectiveAmount,
       goldValue,
     });
 
@@ -51,9 +85,10 @@ export function calculateItemEfficiency(
 /**
  * Calculate efficiency for all items, sorted by efficiency (highest first)
  */
-export function getItemsByEfficiency(items: Item[]): EfficiencyResult[] {
+export function getItemsByEfficiency(items: Item[], options: EfficiencyOptions = {}): EfficiencyResult[] {
+  const { auraMultiplier = 1.0 } = options;
   const statValuation = calculateStatValuation(items);
-  const results = items.map((item) => calculateItemEfficiency(item, statValuation));
+  const results = items.map((item) => calculateItemEfficiency(item, statValuation, { auraMultiplier }));
   return orderBy(results, ['efficiency'], ['desc']);
 }
 
@@ -73,9 +108,10 @@ export interface ValueRankingResult extends EfficiencyResult {
  * Uses min-max normalization so both factors contribute equally.
  * Uses efficiencyWithUtility to account for active abilities.
  */
-export function getItemsByValue(items: Item[]): ValueRankingResult[] {
+export function getItemsByValue(items: Item[], options: EfficiencyOptions = {}): ValueRankingResult[] {
+  const { auraMultiplier = 1.0 } = options;
   const statValuation = calculateStatValuation(items);
-  const results = items.map((item) => calculateItemEfficiency(item, statValuation));
+  const results = items.map((item) => calculateItemEfficiency(item, statValuation, { auraMultiplier }));
   
   // Filter out items with zero total value (no stats and no utility)
   const validResults = results.filter(r => r.totalValue > 0);
@@ -99,12 +135,16 @@ export function getItemsByValue(items: Item[]): ValueRankingResult[] {
   // Calculate value scores
   const valueResults: ValueRankingResult[] = validResults.map(result => {
     // Normalize efficiency (with utility): higher is better (0 to 1)
-    const normalizedEfficiency = (result.efficiencyWithUtility - minEfficiency) / efficiencyRange;
+    const normalizedEfficiency = efficiencyRange > 0
+      ? (result.efficiencyWithUtility - minEfficiency) / efficiencyRange
+      : 0;
     
-    // Normalize cost: lower is better, so invert (0 to 1, where 1 = cheapest)
-    const normalizedCost = 1 - (result.item.cost - minCost) / costRange;
+    // Normalize cost: lower is better (0 to 1)
+    const normalizedCost = costRange > 0
+      ? (maxCost - result.item.cost) / costRange
+      : 0;
     
-    // Equal weight: average of both normalized scores
+    // Value score = average of both factors
     const valueScore = (normalizedEfficiency + normalizedCost) / 2;
     
     return {
@@ -115,7 +155,6 @@ export function getItemsByValue(items: Item[]): ValueRankingResult[] {
     };
   });
   
-  // Sort by value score (highest first)
   return orderBy(valueResults, ['valueScore'], ['desc']);
 }
 

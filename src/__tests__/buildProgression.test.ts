@@ -394,7 +394,7 @@ describe("Build Progression", () => {
         defaultItemCount: 2,
         resultLimit: 10,
         statValuation,
-        minComponentReuse: 0.2,
+        minTotalRecovery: 0.2,
       });
 
       expect(result.stats.stageStats).toHaveLength(2);
@@ -423,13 +423,13 @@ describe("Build Progression", () => {
       expect(result.sequences.length).toBeLessThanOrEqual(3);
     });
 
-    it("respects minComponentReuse", () => {
+    it("respects minTotalRecovery", () => {
       const result = analyzeProgression(items, DEFAULT_CONFIG, {
         stages: [{ maxCost: 500 }, { maxCost: 3000 }],
         defaultItemCount: 2,
         resultLimit: 20,
         statValuation,
-        minComponentReuse: 0.5, // Strict reuse requirement
+        minTotalRecovery: 0.5, // Strict reuse requirement
       });
 
       // All sequences should have good reuse
@@ -576,7 +576,7 @@ describe("Build Progression", () => {
           defaultItemCount: 2,
           resultLimit: 5,
           statValuation,
-          minComponentReuse: 0.1,
+          minTotalRecovery: 0.1,
         });
 
         // Check that stage 1 has required items resolved
@@ -602,7 +602,7 @@ describe("Build Progression", () => {
           defaultItemCount: 2,
           resultLimit: 5,
           statValuation,
-          minComponentReuse: 0.1,
+          minTotalRecovery: 0.1,
         });
 
         expect(result.stats.totalRequiredItems).toBe(2);
@@ -642,7 +642,7 @@ describe("Build Progression", () => {
           defaultItemCount: 2,
           resultLimit: 5,
           statValuation,
-          minComponentReuse: 0.1,
+          minTotalRecovery: 0.1,
         });
 
         for (const seq of result.sequences) {
@@ -785,7 +785,7 @@ describe("Build Progression", () => {
         defaultItemCount: 2,
         resultLimit: 10,
         statValuation,
-        minComponentReuse: 0.2,
+        minTotalRecovery: 0.2,
       });
 
       expect(result.stats.stageStats).toHaveLength(2);
@@ -811,7 +811,7 @@ describe("Build Progression", () => {
         defaultItemCount: 2,
         resultLimit: 10,
         statValuation,
-        minComponentReuse: 0.1,
+        minTotalRecovery: 0.1,
       });
 
       // Should have resolved targets in stage 1
@@ -843,7 +843,7 @@ describe("Build Progression", () => {
         defaultItemCount: 2,
         resultLimit: 5,
         statValuation,
-        minComponentReuse: 0.1,
+        minTotalRecovery: 0.1,
       });
 
       // Stage 0 has no required items

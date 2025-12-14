@@ -27,6 +27,7 @@ export const strengthComponent: Item = {
   stats: { strength: 2 },
   isComponent: true,
   isConsumable: false,
+  auraStats: {},
   components: [],
 };
 
@@ -39,6 +40,7 @@ export const agilityComponent: Item = {
   stats: { agility: 2 },
   isComponent: true,
   isConsumable: false,
+  auraStats: {},
   components: [],
 };
 
@@ -51,6 +53,7 @@ export const intelligenceComponent: Item = {
   stats: { intelligence: 2 },
   isComponent: true,
   isConsumable: false,
+  auraStats: {},
   components: [],
 };
 
@@ -63,6 +66,7 @@ export const armorComponent: Item = {
   stats: { armor: 1 },
   isComponent: true,
   isConsumable: false,
+  auraStats: {},
   components: [],
 };
 
@@ -75,6 +79,7 @@ export const regenComponent: Item = {
   stats: { healthRegen: 1 },
   isComponent: true,
   isConsumable: false,
+  auraStats: {},
   components: [],
 };
 
@@ -87,6 +92,7 @@ export const manaRegenComponent: Item = {
   stats: { manaRegen: 0.5 },
   isComponent: true,
   isConsumable: false,
+  auraStats: {},
   components: [],
 };
 
@@ -99,6 +105,7 @@ export const moveSpeedComponent: Item = {
   stats: { moveSpeed: 20 },
   isComponent: true,
   isConsumable: false,
+  auraStats: {},
   components: [],
 };
 
@@ -115,6 +122,7 @@ export const damageComponent: Item = {
   stats: { damage: 5 },
   isComponent: true,
   isConsumable: false,
+  auraStats: {},
   components: [],
 };
 
@@ -132,6 +140,7 @@ export const deadEndComponent: Item = {
   stats: { damage: 3 },
   isComponent: true,
   isConsumable: false,
+  auraStats: {},
   components: [],
 };
 
@@ -148,6 +157,7 @@ export const basicBoots: Item = {
   stats: { moveSpeed: 30 },
   isComponent: true,
   isConsumable: false,
+  auraStats: {},
   components: [],
 };
 
@@ -168,6 +178,7 @@ export const upgradedBoots: Item = {
   stats: { moveSpeed: 30, strength: 2 },
   isComponent: false,
   isConsumable: false,
+  auraStats: {},
   components: ["boots", "strength_component"],
 };
 
@@ -182,6 +193,7 @@ export const fancyBoots: Item = {
   stats: { moveSpeed: 50, mana: 100 },
   isComponent: false,
   isConsumable: false,
+  auraStats: {},
   components: ["boots", "move_speed_component"],
 };
 
@@ -202,6 +214,7 @@ export const perfectRecoveryItem: Item = {
   stats: { strength: 2, agility: 2 },
   isComponent: false,
   isConsumable: false,
+  auraStats: {},
   components: ["strength_component", "agility_component"],
 };
 
@@ -218,6 +231,7 @@ export const goodRecoveryItem: Item = {
   stats: { strength: 2, intelligence: 2 },
   isComponent: false,
   isConsumable: false,
+  auraStats: {},
   components: ["strength_component", "intelligence_component"],
 };
 
@@ -234,6 +248,7 @@ export const mixedRecoveryItem: Item = {
   stats: { strength: 2, damage: 5 },
   isComponent: false,
   isConsumable: false,
+  auraStats: {},
   components: ["strength_component", "damage_component"],
 };
 
@@ -251,6 +266,7 @@ export const poorRecoveryItem: Item = {
   stats: { damage: 6 },
   isComponent: false,
   isConsumable: false,
+  auraStats: {},
   components: ["dead_end_component", "dead_end_component"],
 };
 
@@ -267,6 +283,7 @@ export const multiComponentItem: Item = {
   stats: { strength: 2, agility: 2, intelligence: 2 },
   isComponent: false,
   isConsumable: false,
+  auraStats: {},
   components: ["strength_component", "agility_component", "intelligence_component"],
 };
 
@@ -283,6 +300,7 @@ export const regenItem: Item = {
   stats: { healthRegen: 1, intelligence: 2 },
   isComponent: false,
   isConsumable: false,
+  auraStats: {},
   components: ["regen_component", "intelligence_component"],
 };
 
@@ -303,6 +321,7 @@ export const fullyReachableLateItem: Item = {
   stats: { strength: 10, agility: 10, intelligence: 10 },
   isComponent: false,
   isConsumable: false,
+  auraStats: {},
   components: ["strength_component", "agility_component", "intelligence_component"],
 };
 
@@ -319,6 +338,7 @@ export const bootsLateItem: Item = {
   stats: { moveSpeed: 100 },
   isComponent: false,
   isConsumable: false,
+  auraStats: {},
   components: ["boots", "move_speed_component"],
 };
 
@@ -337,6 +357,7 @@ export const partiallyReachableLateItem: Item = {
   stats: { strength: 10, damage: 20 },
   isComponent: false,
   isConsumable: false,
+  auraStats: {},
   components: ["strength_component", "truly_orphan_component"],
 };
 
@@ -351,6 +372,7 @@ export const trulyOrphanComponent: Item = {
   stats: { damage: 10 },
   isComponent: true,
   isConsumable: false,
+  auraStats: {},
   components: [],
 };
 
@@ -366,6 +388,7 @@ export const unreachableLateItem: Item = {
   stats: { damage: 30 },
   isComponent: false,
   isConsumable: false,
+  auraStats: {},
   components: ["truly_orphan_component"],
 };
 
@@ -382,6 +405,7 @@ export const keyUtilityItem: Item = {
   stats: { intelligence: 10, healthRegen: 2 },
   isComponent: false,
   isConsumable: false,
+  auraStats: {},
   components: ["intelligence_component", "regen_component"],
 };
 
@@ -398,6 +422,7 @@ export const armorLateItem: Item = {
   stats: { armor: 10, manaRegen: 5 },
   isComponent: false,
   isConsumable: false,
+  auraStats: {},
   components: ["armor_component", "mana_regen_component"],
 };
 
@@ -414,6 +439,7 @@ export const damageLateItem: Item = {
   stats: { damage: 50, strength: 10 },
   isComponent: false,
   isConsumable: false,
+  auraStats: {},
   components: ["damage_component", "strength_component"],
 };
 

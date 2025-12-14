@@ -211,17 +211,20 @@ export const maxCostIncrease = (maxIncrease: number): StageConstraint =>
   };
 
 /**
- * Constraint: minimum component reuse from previous stage.
+ * Constraint: minimum total gold recovery from previous stage.
  *
- * Ensures transitions make efficient use of existing components.
+ * Includes both component reuse AND recipe recovery (Gyro's innate gives 100% recipe refund).
+ * This measures true gold efficiency - how much of your previous investment you retain.
  *
- * @param minPercent - Minimum reuse as decimal (0-1), e.g., 0.5 = 50%
+ * @param minPercent - Minimum recovery as decimal (0-1), e.g., 0.5 = 50%
  */
-export const minReuseFromPrevious = (minPercent: number): StageConstraint =>
+export const minTotalRecoveryFromPrevious = (minPercent: number): StageConstraint =>
   (stage, prev) => {
     if (!stage.transition) return true; // Initial stage
     if (!prev || prev.loadout.totalCost === 0) return true;
-    return stage.transition.componentFlow.reusedGold / prev.loadout.totalCost >= minPercent;
+    const flow = stage.transition.componentFlow;
+    const totalRecovered = flow.reusedGold + flow.recoveredRecipeCost;
+    return totalRecovered / prev.loadout.totalCost >= minPercent;
   };
 
 /**
@@ -317,7 +320,7 @@ export const afterStage = (
  * const strict = allStageConstraints(
  *   withinCostThreshold,
  *   costMustIncrease,
- *   minReuseFromPrevious(0.5)
+ *   minTotalRecoveryFromPrevious(0.5)
  * );
  * ```
  */
@@ -401,7 +404,7 @@ export const standardSequenceConstraints = (
  * Strict constraints for high-efficiency sequences.
  *
  * In addition to standard constraints:
- * - Minimum 50% component reuse
+ * - Minimum 50% total gold recovery
  * - Maximum 20% waste
  *
  * @param config - Analysis configuration
@@ -411,7 +414,7 @@ export const strictSequenceConstraints = (
 ): StageConstraint =>
   allStageConstraints(
     standardSequenceConstraints(config),
-    minReuseFromPrevious(0.5),
+    minTotalRecoveryFromPrevious(0.5),
     maxWastePercentFromPrevious(0.2)
   );
 

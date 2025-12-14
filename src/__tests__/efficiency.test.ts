@@ -68,6 +68,7 @@ describe("efficiency", () => {
         stats: {},
         isComponent: true,
         isConsumable: false,
+      auraStats: {},
         components: [],
       };
 
@@ -105,6 +106,7 @@ describe("efficiency", () => {
         stats: { strength: 5 },
         isComponent: true,
         isConsumable: false,
+      auraStats: {},
         components: [],
       };
 
@@ -122,6 +124,7 @@ describe("efficiency", () => {
         stats: {},
         isComponent: true,
         isConsumable: false,
+      auraStats: {},
         components: [],
       };
 
@@ -182,6 +185,7 @@ describe("efficiency", () => {
         stats: {},
         isComponent: true,
         isConsumable: false,
+      auraStats: {},
         components: [],
       };
 

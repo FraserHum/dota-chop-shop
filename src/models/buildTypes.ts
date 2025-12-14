@@ -317,8 +317,8 @@ export interface PathFindingOptions {
   readonly resultLimit?: number;
   /** Weight for target coverage in scoring (0-1, default: 0.4) */
   readonly targetCoverageWeight?: number;
-  /** Minimum component reuse percentage (0-1, default: 0.3) */
-  readonly minComponentReuse?: number;
+  /** Minimum total gold recovery percentage (0-1, default: 0.3) */
+  readonly minTotalRecovery?: number;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -420,8 +420,8 @@ export interface BuildSequenceOptions {
   readonly statValuation?: StatValuation;
   /** Beam width - candidates to keep at each stage (default: resultLimit * 10) */
   readonly beamWidth?: number;
-  /** Minimum component reuse percentage for transitions (0-1, default: 0.3) */
-  readonly minComponentReuse?: number;
+  /** Minimum total gold recovery percentage for transitions (0-1, default: 0.3) */
+  readonly minTotalRecovery?: number;
 }
 
 /**
@@ -539,6 +539,20 @@ export interface StageDefinition {
    * Boots are identified by config.bootItems list.
    */
   readonly requireBoots?: boolean;
+
+  /**
+   * Whether to allow raw component items (items with no child components)
+   * in this stage's item pool.
+   *
+   * When true (default), component items like Boots of Speed, Blades of Attack,
+   * etc. can be included in loadouts as standalone items.
+   *
+   * When false, only upgraded items (items with components) are considered.
+   * This is useful for later game stages where you want to force assembled items.
+   *
+   * Default: inherits from global includeComponentItems option (typically true).
+   */
+  readonly allowRawComponents?: boolean;
 }
 
 /**
@@ -595,11 +609,18 @@ export interface BuildProgressionOptions {
   /** Beam width for search (default: resultLimit * 10) */
   readonly beamWidth?: number;
 
-  /** Minimum component reuse between stages (0-1, default: 0.3) */
-  readonly minComponentReuse?: number;
+  /** Minimum total gold recovery between stages (0-1, default: 0.3) */
+  readonly minTotalRecovery?: number;
 
   /** Stat valuations for scoring */
   readonly statValuation?: StatValuation;
+
+  /**
+   * Multiplier for aura stats to account for team-wide benefit.
+   * 1.0 = solo, 2.5 = average teamfight, 5.0 = full team.
+   * Default: 1.0
+   */
+  readonly auraMultiplier?: number;
 
   /**
    * Weight for required item coverage in scoring (0-1, default: 0.4).
@@ -607,24 +628,23 @@ export interface BuildProgressionOptions {
    */
   readonly targetCoverageWeight?: number;
 
-  /**
-   * Include component items (like Boots of Speed, Blades of Attack) in the
-   * item pool, allowing them to be part of builds as standalone items.
-   * 
-   * Default: true (component items are included)
-   * 
-   * When true, component items can be assembled into loadouts just like
-   * upgraded items. They contribute stats and count toward item slots.
-   * This is useful for early game builds where buying a component item
-   * directly may be more efficient than upgrading.
-   */
-  readonly includeComponentItems?: boolean;
-
   /** Number of active inventory slots (default: 6) */
   readonly inventorySlots?: number;
 
   /** Number of backpack slots (default: 3) */
   readonly backpackSlots?: number;
+
+  /**
+   * Callback for receiving progress updates during analysis.
+   *
+   * When provided, this callback will be invoked at key points during
+   * the analysis to report progress. Useful for updating spinners,
+   * progress bars, or logging.
+   *
+   * The callback should be fast and non-blocking to avoid impacting
+   * analysis performance.
+   */
+  readonly onProgress?: ProgressionProgressCallback;
 }
 
 /**
@@ -670,3 +690,68 @@ export interface BuildProgressionStats extends BuildSequenceStats {
    */
   readonly resolvedRequiredItems: number;
 }
+
+// ─────────────────────────────────────────────────────────────
+// Progress Reporting Types
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Phase of build progression analysis.
+ */
+export type ProgressionPhase =
+  | 'initializing'
+  | 'resolving'
+  | 'generating'
+  | 'expanding'
+  | 'finalizing';
+
+/**
+ * Progress update sent during build progression analysis.
+ *
+ * Provides real-time feedback about analysis progress, useful for
+ * updating spinners, progress bars, or logging in CLI applications.
+ */
+export interface ProgressionProgressUpdate {
+  /** Current phase of analysis */
+  readonly phase: ProgressionPhase;
+
+  /** Current stage index (0-based), available in generating/expanding phases */
+  readonly stageIndex?: number;
+
+  /** Total number of stages */
+  readonly totalStages: number;
+
+  /** Combinations evaluated so far in current phase */
+  readonly evaluated?: number;
+
+  /** Valid candidates found so far in current phase */
+  readonly valid?: number;
+
+  /** Current sequence being expanded (for expanding phase) */
+  readonly sequenceIndex?: number;
+
+  /** Total sequences to expand (for expanding phase) */
+  readonly totalSequences?: number;
+
+  /** Elapsed time in milliseconds since analysis started */
+  readonly elapsedMs: number;
+
+  /** Human-readable status message */
+  readonly message: string;
+}
+
+/**
+ * Callback for receiving progress updates during analysis.
+ *
+ * @example
+ * ```ts
+ * const onProgress: ProgressionProgressCallback = (update) => {
+ *   spinner.message(update.message);
+ * };
+ *
+ * analyzeProgression(items, config, { stages, onProgress });
+ * ```
+ */
+export type ProgressionProgressCallback = (
+  update: ProgressionProgressUpdate
+) => void;

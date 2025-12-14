@@ -327,14 +327,18 @@ export const createTransitionFromItems = (
 // ─────────────────────────────────────────────────────────────
 
 /**
- * Calculate the reuse efficiency of a transition.
+ * Calculate the total gold recovery percentage of a transition.
+ *
+ * Includes both component reuse AND recipe recovery (Gyro's innate gives 100% recipe refund).
+ * This measures true gold efficiency - how much of your previous investment you retain.
  *
  * @param transition - The transition to analyze
- * @returns Percentage of early gold that was reused (0-1)
+ * @returns Percentage of early gold that was recovered (0-1)
  */
-export const getReusedPercentage = (transition: LoadoutTransition): number => {
+export const getTotalRecoveryPercentage = (transition: LoadoutTransition): number => {
   if (transition.from.totalCost === 0) return 0;
-  return transition.componentFlow.reusedGold / transition.from.totalCost;
+  const totalRecovered = transition.componentFlow.reusedGold + transition.componentFlow.recoveredRecipeCost;
+  return totalRecovered / transition.from.totalCost;
 };
 
 /**

@@ -180,13 +180,26 @@ const CONDITIONAL_BONUS_KEYS = new Set([
 ]);
 
 /**
- * Extract stats from an OpenDota item object
+ * Result of extracting stats from an item.
+ * Separates base stats (personal) from aura stats (team-wide).
  */
-function extractStats(itemData: OpenDotaItem, auraMultiplier: number = DEFAULT_AURA_MULTIPLIER): ItemStats {
+interface ExtractedStats {
+  /** Base stats that only affect the holder */
+  stats: ItemStats;
+  /** Aura stats that affect nearby allies (can be multiplied for team value) */
+  auraStats: ItemStats;
+}
+
+/**
+ * Extract stats from an OpenDota item object.
+ * Separates base stats from aura stats so the aura multiplier can be applied later.
+ */
+function extractStats(itemData: OpenDotaItem): ExtractedStats {
   const stats: ItemStats = {};
+  const auraStats: ItemStats = {};
 
   if (!itemData.attrib || !Array.isArray(itemData.attrib)) {
-    return stats;
+    return { stats, auraStats };
   }
 
   for (const attr of itemData.attrib) {
@@ -214,35 +227,22 @@ function extractStats(itemData: OpenDotaItem, auraMultiplier: number = DEFAULT_A
       stats.intelligence = (stats.intelligence || 0) + value;
     } else if (STAT_MAPPING[key]) {
       const statKey = STAT_MAPPING[key];
-      // Apply aura multiplier for team-wide benefits
-      const effectiveValue = POSITIVE_AURA_KEYS.has(key) ? value * auraMultiplier : value;
-      stats[statKey] = (stats[statKey] || 0) + effectiveValue;
+      // Separate aura stats from base stats
+      if (POSITIVE_AURA_KEYS.has(key)) {
+        auraStats[statKey] = (auraStats[statKey] || 0) + value;
+      } else {
+        stats[statKey] = (stats[statKey] || 0) + value;
+      }
     }
   }
 
-  return stats;
-}
-
-/**
- * Options for fetching items
- */
-export interface FetchItemsOptions {
-  /** 
-   * Multiplier for aura stats to account for team-wide benefit.
-   * 1.0 = solo (only affects yourself)
-   * 2.5 = average teamfight (yourself + ~1.5 teammates in range)
-   * 5.0 = full team (yourself + 4 teammates)
-   * Default: 1.0
-   */
-  auraMultiplier?: number;
+  return { stats, auraStats };
 }
 
 /**
  * Fetch item data from OpenDota API
  */
-export async function fetchItemsFromAPI(options: FetchItemsOptions = {}): Promise<Item[]> {
-  const { auraMultiplier = DEFAULT_AURA_MULTIPLIER } = options;
-  
+export async function fetchItemsFromAPI(): Promise<Item[]> {
   return new Promise((resolve, reject) => {
     https
       .get(OPENDOTA_ITEMS_URL, (res) => {
@@ -270,12 +270,15 @@ export async function fetchItemsFromAPI(options: FetchItemsOptions = {}): Promis
               // Skip removed items
               if (REMOVED_ITEMS.has(itemId)) continue;
 
+              const { stats, auraStats } = extractStats(itemData);
+
               items.push({
                 id: itemId,
                 name: itemId,
                 displayName: itemData.dname || itemId,
                 cost: itemData.cost,
-                stats: extractStats(itemData, auraMultiplier),
+                stats,
+                auraStats,
                 isComponent: !itemData.components || itemData.components.length === 0,
                 isConsumable: CONSUMABLE_ITEMS.has(itemId) || itemData.charges === true,
                 components: itemData.components || [],

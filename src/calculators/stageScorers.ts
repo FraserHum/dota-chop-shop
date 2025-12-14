@@ -112,18 +112,20 @@ export const budgetRemainingScore: StageScorer = (stage) => {
  *
  * @param statValuation - Stat valuations for efficiency calculation
  * @param maxEfficiency - Maximum efficiency for normalization
+ * @param auraMultiplier - Multiplier for aura stats (default: 1.0)
  * @returns Stage scorer returning 0-1
  */
 export const averageItemEfficiencyScore = (
   statValuation: StatValuation,
-  maxEfficiency = 1.5
+  maxEfficiency = 1.5,
+  auraMultiplier = 1.0
 ): StageScorer =>
   (stage) => {
     if (stage.loadout.items.length === 0) return 0;
 
     const avgEfficiency = meanBy(
       [...stage.loadout.items],
-      (item) => calculateItemEfficiency(item, statValuation).efficiencyWithUtility
+      (item) => calculateItemEfficiency(item, statValuation, { auraMultiplier }).efficiencyWithUtility
     );
 
     return clamp(avgEfficiency / maxEfficiency, 0, 1);
@@ -319,18 +321,20 @@ export const clampStageScore = (
  * For upgrade stages: includes transition efficiency.
  *
  * @param statValuation - Stat valuations for efficiency calculations
+ * @param auraMultiplier - Multiplier for aura stats (default: 1.0)
  * @returns Balanced stage scorer
  */
 export const createBalancedStageScorer = (
-  statValuation: StatValuation
+  statValuation: StatValuation,
+  auraMultiplier = 1.0
 ): StageScorer => {
-  const improvedTransitionScorer = createImprovedScorer(statValuation);
+  const improvedTransitionScorer = createImprovedScorer(statValuation, auraMultiplier);
 
   return (stage, prev) => {
     // For initial stage, score based on loadout quality
     if (!stage.transition) {
       return weightedStageScore([
-        { scorer: averageItemEfficiencyScore(statValuation), weight: 0.4 },
+        { scorer: averageItemEfficiencyScore(statValuation, 1.5, auraMultiplier), weight: 0.4 },
         { scorer: loadoutUtilityScore(2500), weight: 0.2 },
         { scorer: budgetUtilizationScore, weight: 0.4 },
       ])(stage, prev);
@@ -338,7 +342,7 @@ export const createBalancedStageScorer = (
 
     // For upgrade stages, combine transition quality with loadout quality
     const transitionScore = improvedTransitionScorer(stage.transition);
-    const loadoutScore = averageItemEfficiencyScore(statValuation)(stage, prev);
+    const loadoutScore = averageItemEfficiencyScore(statValuation, 1.5, auraMultiplier)(stage, prev);
     const budgetScore = budgetUtilizationScore(stage, prev);
 
     return transitionScore * 0.5 + loadoutScore * 0.3 + budgetScore * 0.2;

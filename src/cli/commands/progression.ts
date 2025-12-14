@@ -25,6 +25,7 @@ import {
   BuildProgressionResult,
   BuildProgressionOptions,
   StageDefinition,
+  ProgressionProgressCallback,
 } from "../../models/buildTypes";
 
 /**
@@ -99,6 +100,9 @@ export interface ProgressionOptions {
 
   /** Number of backpack slots (default: 3) */
   backpackSlots?: number;
+
+  /** Show progress updates during analysis */
+  showProgress?: boolean;
 }
 
 /**
@@ -245,7 +249,8 @@ function buildStageDefinitions(
  */
 export function runProgressionAnalysis(
   ctx: CliContext,
-  options: ProgressionOptions
+  options: ProgressionOptions,
+  onProgress?: ProgressionProgressCallback
 ): BuildProgressionResult | null {
   const { stages, error } = buildStageDefinitions(options);
 
@@ -276,12 +281,13 @@ export function runProgressionAnalysis(
     defaultItemCount: options.itemCount ?? 3,
     resultLimit: options.resultLimit ?? 20,
     beamWidth: options.beamWidth,
-    minComponentReuse: options.minReuse ?? 0.3,
+    minTotalRecovery: options.minReuse ?? 0.3,
     statValuation: ctx.statValuation,
+    auraMultiplier: ctx.config.thresholds.auraMultiplier,
     targetCoverageWeight: options.targetCoverage ?? 0.4,
-    includeComponentItems: options.componentItems ?? true,
     inventorySlots: options.inventorySlots,
     backpackSlots: options.backpackSlots,
+    onProgress,
   };
 
   return analyzeProgression(ctx.items, ctx.config, progressionOptions, ctx.repo);
@@ -299,6 +305,7 @@ export function printProgressionAnalysis(
     detailLimit = 5,
     verbose = false,
     quiet = false,
+    showProgress = false,
   } = options;
 
   if (!quiet) {
@@ -324,9 +331,26 @@ export function printProgressionAnalysis(
     console.log("");
   }
 
+  // Set up progress reporting
+  let lastProgressMessage = '';
+  const onProgress: ProgressionProgressCallback | undefined = showProgress
+    ? (update) => {
+        // Only update if message changed (avoid flicker)
+        if (update.message !== lastProgressMessage) {
+          lastProgressMessage = update.message;
+          process.stdout.write(`\r${update.message.padEnd(70)}`);
+        }
+      }
+    : undefined;
+
   const startTime = performance.now();
-  const result = runProgressionAnalysis(ctx, options);
+  const result = runProgressionAnalysis(ctx, options, onProgress);
   const elapsed = ((performance.now() - startTime) / 1000).toFixed(2);
+
+  // Clear progress line if we were showing progress
+  if (showProgress) {
+    process.stdout.write('\r' + ' '.repeat(70) + '\r');
+  }
 
   if (!result) {
     return;

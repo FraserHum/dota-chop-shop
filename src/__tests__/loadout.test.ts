@@ -4,7 +4,7 @@ import {
   createTransition,
   analyzeComponentFlow,
   emptyLoadout,
-  getReusedPercentage,
+  getTotalRecoveryPercentage,
   getWastedPercentage,
   formatTransition,
 } from "../calculators/loadout";
@@ -167,15 +167,15 @@ describe("loadout utilities", () => {
     });
   });
 
-  describe("getReusedPercentage", () => {
-    it("returns percentage of gold reused", () => {
-      const from = createLoadout([perfectRecoveryItem], repo); // str(100) + agi(100) = 200g
+  describe("getTotalRecoveryPercentage", () => {
+    it("returns percentage of gold recovered (components + recipes)", () => {
+      const from = createLoadout([perfectRecoveryItem], repo); // str(100) + agi(100), no recipe = 200g
       const to = createLoadout([goodRecoveryItem], repo); // str(100) + int(100)
 
       const transition = createTransition(from, to, repo);
-      const percent = getReusedPercentage(transition);
+      const percent = getTotalRecoveryPercentage(transition);
 
-      // 100g reused out of 200g = 50%
+      // 100g reused + 0g recipe = 100g recovered out of 200g = 50%
       expect(percent).toBeCloseTo(0.5, 2);
     });
 
@@ -184,7 +184,7 @@ describe("loadout utilities", () => {
       const to = createLoadout([perfectRecoveryItem], repo);
 
       const transition = createTransition(from, to, repo);
-      const percent = getReusedPercentage(transition);
+      const percent = getTotalRecoveryPercentage(transition);
 
       expect(percent).toBe(0);
     });
@@ -194,7 +194,7 @@ describe("loadout utilities", () => {
       const to = createLoadout([perfectRecoveryItem], repo); // same
 
       const transition = createTransition(from, to, repo);
-      const percent = getReusedPercentage(transition);
+      const percent = getTotalRecoveryPercentage(transition);
 
       expect(percent).toBeCloseTo(1.0, 2);
     });

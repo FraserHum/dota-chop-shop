@@ -212,3 +212,133 @@ export interface AggregatedResult {
   /** Total wall-clock time */
   totalTimeMs: number;
 }
+
+// ─────────────────────────────────────────────────────────────
+// Progression Worker Types
+// ─────────────────────────────────────────────────────────────
+
+import {
+  StageDefinition,
+  BuildSequence,
+  BuildProgressionStats,
+  ProgressionPhase,
+} from "../models/buildTypes";
+
+/**
+ * Input for the progression analysis worker.
+ */
+export interface ProgressionWorkerInput {
+  /** All items (serializable plain objects) */
+  allItems: Item[];
+
+  /** Analysis configuration */
+  config: AnalysisConfig;
+
+  /** Stage definitions */
+  stages: StageDefinition[];
+
+  /** Default item count per stage */
+  defaultItemCount: number;
+
+  /** Maximum results to return */
+  resultLimit: number;
+
+  /** Beam width for search */
+  beamWidth: number;
+
+  /** Minimum total gold recovery ratio */
+  minTotalRecovery: number;
+
+  /** Optional stat valuation for scoring */
+  statValuation?: StatValuation;
+
+  /** Aura multiplier for team-wide benefit */
+  auraMultiplier: number;
+
+  /** Target coverage weight */
+  targetCoverageWeight: number;
+
+  /** Inventory slots */
+  inventorySlots?: number;
+
+  /** Backpack slots */
+  backpackSlots?: number;
+}
+
+/**
+ * Progress update from progression worker.
+ */
+export interface ProgressionWorkerProgress {
+  type: "progress";
+  phase: ProgressionPhase;
+  stageIndex?: number;
+  totalStages: number;
+  evaluated?: number;
+  valid?: number;
+  sequenceIndex?: number;
+  totalSequences?: number;
+  elapsedMs: number;
+  message: string;
+}
+
+/**
+ * Serialized build sequence for worker communication.
+ */
+export interface SerializedBuildSequence {
+  /** Item names per stage (inventory items) */
+  stageItems: string[][];
+  /** Total score */
+  totalScore: number;
+  /** Per-stage scores */
+  stageScores: number[];
+  /** Per-stage cost thresholds */
+  stageThresholds: number[];
+  /** Per-stage stat values */
+  stageStatValues: number[];
+}
+
+/**
+ * Result from progression worker.
+ */
+export interface ProgressionWorkerResult {
+  type: "result";
+  /** Top sequences found */
+  sequences: SerializedBuildSequence[];
+  /** Resolved target item names by stage index */
+  resolvedTargets: [number, string[]][];
+  /** Unresolved target names by stage index */
+  unresolvedTargets: [number, string[]][];
+  /** Statistics */
+  stats: BuildProgressionStats;
+}
+
+/**
+ * Error from progression worker.
+ */
+export interface ProgressionWorkerError {
+  type: "error";
+  error: string;
+}
+
+/**
+ * All message types from progression worker.
+ */
+export type ProgressionWorkerMessage =
+  | ProgressionWorkerProgress
+  | ProgressionWorkerResult
+  | ProgressionWorkerError;
+
+/**
+ * Serialize a BuildSequence for worker communication.
+ */
+export function serializeBuildSequence(seq: BuildSequence): SerializedBuildSequence {
+  return {
+    stageItems: seq.stages.map((stage) =>
+      stage.loadout.inventory.map((item) => item.name)
+    ),
+    totalScore: seq.totalScore,
+    stageScores: [...seq.stageScores],
+    stageThresholds: seq.stages.map((stage) => stage.costThreshold),
+    stageStatValues: seq.stages.map((stage) => stage.loadout.totalStatValue),
+  };
+}

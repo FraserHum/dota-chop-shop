@@ -282,6 +282,7 @@ describe("ItemRepository edge cases", () => {
       stats: {},
       isComponent: false,
       isConsumable: false,
+      auraStats: {},
       components: ["nonexistent_component"],
     };
 

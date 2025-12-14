@@ -9,7 +9,7 @@ import { Item, StatValuation } from "../models/types";
 import { ItemRepository } from "../data/ItemRepository";
 import { fetchItemsFromAPI } from "../data/fetchItems";
 import { calculateStatValuation } from "../calculators/statValuation";
-import { AnalysisConfig, mergeConfig } from "../config/analysisConfig";
+import { AnalysisConfig, mergeConfig, isExcludedItem } from "../config/analysisConfig";
 
 /**
  * Shared context for CLI operations.
@@ -71,27 +71,31 @@ export async function initializeContext(
   };
 
   onProgress("Fetching item data from OpenDota API...");
-  const allItems = await fetchItemsFromAPI({ auraMultiplier: effectiveAuraMultiplier });
+  const allItems = await fetchItemsFromAPI();
 
   // Filter consumables unless explicitly requested
   const items = includeConsumables
     ? allItems
     : allItems.filter((item) => !item.isConsumable);
 
-  onProgress(`Loaded ${items.length} items.`);
+  // Filter out excluded items
+  const filteredItems = items.filter((item) => !isExcludedItem(item.name, config));
+
+  onProgress(`Loaded ${filteredItems.length} items.`);
   if (effectiveAuraMultiplier !== 1.0) {
     onProgress(`Aura multiplier: ${effectiveAuraMultiplier}x`);
   }
 
   // Create shared repository
-  const repo = new ItemRepository(items);
+  const repo = new ItemRepository(filteredItems);
 
-  // Calculate stat valuations
+  // Calculate stat valuations from base stats only (not aura stats).
+  // This ensures aura items show their multiplied value relative to non-aura alternatives.
   onProgress("Calculating stat valuations...");
   const statValuation = calculateStatValuation(items);
 
   return {
-    items,
+    items: filteredItems,
     repo,
     statValuation,
     config,

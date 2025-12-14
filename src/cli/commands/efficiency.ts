@@ -55,6 +55,10 @@ export function runEfficiencyAnalysis(
   const result: EfficiencyResult = {
     statValuations: "",
     efficiencyTable: "",
+    simpleItems: "",
+    upgradedItems: "",
+    disassembleTable: "",
+    disassembleDetails: "",
   };
 
   // Stat valuations
@@ -62,29 +66,27 @@ export function runEfficiencyAnalysis(
     result.statValuations = formatStatValuations(ctx.statValuation);
   }
 
-  // Efficiency rankings
-  const efficiencyResults = getItemsByEfficiency(ctx.items);
-  const limitedResults = limit ? efficiencyResults.slice(0, limit) : efficiencyResults;
-  result.efficiencyTable = formatEfficiencyTable(limitedResults);
+  // Efficiency rankings - pass aura multiplier from config
+  const efficiencyResults = getItemsByEfficiency(ctx.items, { auraMultiplier: ctx.config.thresholds.auraMultiplier });
+  result.efficiencyTable = formatEfficiencyTable(efficiencyResults);
 
-  // Value rankings by item type
-  if (!simpleOnly && !upgradedOnly) {
-    const { simpleItems, upgradedItems } = getItemsByValueSplit(ctx.items);
-    result.simpleItems = formatValueRankingTable(limit ? simpleItems.slice(0, limit) : simpleItems);
-    result.upgradedItems = formatValueRankingTable(limit ? upgradedItems.slice(0, limit) : upgradedItems);
-  } else if (simpleOnly) {
-    const { simpleItems } = getItemsByValueSplit(ctx.items);
-    result.simpleItems = formatValueRankingTable(limit ? simpleItems.slice(0, limit) : simpleItems);
-  } else if (upgradedOnly) {
-    const { upgradedItems } = getItemsByValueSplit(ctx.items);
-    result.upgradedItems = formatValueRankingTable(limit ? upgradedItems.slice(0, limit) : upgradedItems);
+  // Simple items only
+  if (simpleOnly) {
+    const simpleItems = efficiencyResults.filter(r => r.item.isComponent);
+    result.simpleItems = formatEfficiencyTable(simpleItems);
   }
 
-  // Disassemble analysis (Gyrocopter innate)
+  // Upgraded items only
+  if (upgradedOnly) {
+    const upgradedItems = efficiencyResults.filter(r => !r.item.isComponent);
+    result.upgradedItems = formatEfficiencyTable(upgradedItems);
+  }
+
+  // Disassemble analysis
   if (showDisassemble) {
     const disassembleAnalysis = analyzeDisassemble(ctx.items, ctx.config, ctx.repo);
-    result.disassembleTable = formatDisassembleTable(disassembleAnalysis, limit ?? 30);
-    result.disassembleDetails = formatDisassembleDetails(disassembleAnalysis, 5);
+    result.disassembleTable = formatDisassembleTable(disassembleAnalysis);
+    result.disassembleDetails = formatDisassembleDetails(disassembleAnalysis);
   }
 
   return result;
@@ -98,12 +100,11 @@ export function printEfficiencyAnalysis(
   options: EfficiencyOptions = {}
 ): void {
   const result = runEfficiencyAnalysis(ctx, options);
-  const auraMultiplier = ctx.config.thresholds.auraMultiplier;
 
   if (result.statValuations) {
     let header = "Stat Valuations (Gold per Point)";
-    if (auraMultiplier !== 1.0) {
-      header += ` [Aura: ${auraMultiplier}x]`;
+    if (ctx.config.thresholds.auraMultiplier !== 1.0) {
+      header += ` [Aura: ${ctx.config.thresholds.auraMultiplier}x]`;
     }
     console.log(header + ":\n");
     console.log(result.statValuations);

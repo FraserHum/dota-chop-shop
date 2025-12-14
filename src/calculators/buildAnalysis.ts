@@ -23,7 +23,7 @@ import {
   allConstraints,
   maxFinalItems,
   noDuplicateBoots,
-  minComponentReuse,
+  minTotalRecovery,
   withExplanation,
   allExplainedConstraints,
 } from "./constraints";
@@ -597,7 +597,7 @@ export function meetsReuseThreshold(
   transition: LoadoutTransition,
   minPercent: number
 ): boolean {
-  return minComponentReuse(minPercent)(transition);
+  return minTotalRecovery(minPercent)(transition);
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -717,7 +717,7 @@ export {
 export {
   costIncreaseConstraint,
   minCostIncrease,
-  minComponentReuse,
+  minTotalRecovery,
   maxWastedGold,
   allConstraints,
   anyConstraint,

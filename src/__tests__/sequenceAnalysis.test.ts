@@ -31,7 +31,7 @@ import {
   costMustIncrease,
   minCostIncrease,
   maxCostIncrease,
-  minReuseFromPrevious,
+  minTotalRecoveryFromPrevious,
   maxWasteFromPrevious,
   atStageIndex,
   onlyAtStage,
@@ -294,17 +294,18 @@ describe("Stage Constraints", () => {
       expect(maxCostIncrease(100)(stage2, stage1)).toBe(false);
     });
 
-    it("minReuseFromPrevious checks component reuse", () => {
-      // perfectRecoveryItem (str+agi) -> goodRecoveryItem (str+int)
-      // str is reused = 100g out of 200g = 50%
+    it("minTotalRecoveryFromPrevious checks total gold recovery", () => {
+      // perfectRecoveryItem (str+agi, no recipe) -> goodRecoveryItem (str+int)
+      // str is reused = 100g, no recipe to recover
+      // Total recovery = (100 + 0) / 200 = 50%
       const stage1 = makePrevStage([perfectRecoveryItem], 0, 1000);
       const stage2 = makeStage([goodRecoveryItem], 1, 1000, [perfectRecoveryItem]);
       
-      expect(minReuseFromPrevious(0.4)(stage2, stage1)).toBe(true);
-      expect(minReuseFromPrevious(0.6)(stage2, stage1)).toBe(false);
+      expect(minTotalRecoveryFromPrevious(0.4)(stage2, stage1)).toBe(true);
+      expect(minTotalRecoveryFromPrevious(0.6)(stage2, stage1)).toBe(false);
       
       // Initial stage always passes
-      expect(minReuseFromPrevious(0.9)(stage1, null)).toBe(true);
+      expect(minTotalRecoveryFromPrevious(0.9)(stage1, null)).toBe(true);
     });
 
     it("maxWasteFromPrevious limits wasted gold", () => {
@@ -875,7 +876,7 @@ describe("Build Progression", () => {
         defaultItemCount: 2,
         resultLimit: 10,
         statValuation,
-        minComponentReuse: 0.2,
+        minTotalRecovery: 0.2,
       });
       
       expect(result.stats.stageStats).toHaveLength(2);
@@ -904,13 +905,13 @@ describe("Build Progression", () => {
       expect(result.sequences.length).toBeLessThanOrEqual(3);
     });
 
-    it("respects minComponentReuse", () => {
+    it("respects minTotalRecovery", () => {
       const result = analyzeProgression(items, DEFAULT_CONFIG, {
         stages: stagesFromCosts([500, 3000]),
         defaultItemCount: 2,
         resultLimit: 20,
         statValuation,
-        minComponentReuse: 0.5, // Strict reuse requirement
+        minTotalRecovery: 0.5, // Strict reuse requirement
       });
       
       // All sequences should have good reuse

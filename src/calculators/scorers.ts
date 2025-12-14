@@ -407,13 +407,14 @@ export const greedyReuseScorer: TransitionScorer = reuseEfficiencyScore;
  */
 export const earlyBuildEfficiencyScore = (
   statValuation: StatValuation,
-  maxEfficiency = 1.5
+  maxEfficiency = 1.5,
+  auraMultiplier = 1.0
 ): TransitionScorer => (t) => {
   if (t.from.items.length === 0) return 0;
   
   const avgEfficiency = meanBy(
     [...t.from.items],
-    (item) => calculateItemEfficiency(item, statValuation).efficiencyWithUtility
+    (item) => calculateItemEfficiency(item, statValuation, { auraMultiplier }).efficiencyWithUtility
   );
   
   return clamp(avgEfficiency / maxEfficiency, 0, 1);
@@ -431,13 +432,14 @@ export const earlyBuildEfficiencyScore = (
  */
 export const earlyBuildValueScore = (
   statValuation: StatValuation,
-  maxValueRatio = 1.5
+  maxValueRatio = 1.5,
+  auraMultiplier = 1.0
 ): TransitionScorer => (t) => {
   if (t.from.items.length === 0 || t.from.totalCost === 0) return 0;
   
   const totalValue = sumBy(
     [...t.from.items],
-    (item) => calculateItemEfficiency(item, statValuation).totalValue
+    (item) => calculateItemEfficiency(item, statValuation, { auraMultiplier }).totalValue
   );
   
   const valueRatio = totalValue / t.from.totalCost;
@@ -504,10 +506,12 @@ export const earlyUtilityScore = (
  * - Early affordability (is it actually an early game build?)
  *
  * @param statValuation - Pre-calculated stat valuations for efficiency scoring
+ * @param auraMultiplier - Multiplier for aura stats (default: 1.0)
  * @returns Balanced transition scorer
  */
 export const createImprovedScorer = (
-  statValuation: StatValuation
+  statValuation: StatValuation,
+  auraMultiplier = 1.0
 ): TransitionScorer => weightedScore([
   // Gold efficiency factors
   { scorer: reuseEfficiencyScore, weight: 0.20 },  // Includes recipe recovery
@@ -516,7 +520,7 @@ export const createImprovedScorer = (
   { scorer: transitionAffordabilityScore(5000), weight: 0.15 },  // Actual gold needed (incl. recipes)
   
   // Early build quality - are these good items to buy early?
-  { scorer: earlyBuildEfficiencyScore(statValuation, 1.5), weight: 0.20 },
+  { scorer: earlyBuildEfficiencyScore(statValuation, 1.5, auraMultiplier), weight: 0.20 },
   
   // Early affordability - is this actually an early game build?
   { scorer: earlyAffordabilityScore(3000), weight: 0.20 },
@@ -535,15 +539,17 @@ export const createImprovedScorer = (
  * - Moderate cost upgrades (supports don't farm as fast)
  *
  * @param statValuation - Pre-calculated stat valuations
+ * @param auraMultiplier - Multiplier for aura stats (default: 1.0)
  */
 export const createSupportScorer = (
-  statValuation: StatValuation
+  statValuation: StatValuation,
+  auraMultiplier = 1.0
 ): TransitionScorer => weightedScore([
   { scorer: reuseEfficiencyScore, weight: 0.15 },
   { scorer: wasteAvoidanceScore, weight: 0.10 },
   { scorer: costDeltaScore(3000), weight: 0.05 },  // Supports prefer smaller upgrades
   { scorer: transitionAffordabilityScore(4000), weight: 0.15 },  // Actual gold needed matters
-  { scorer: earlyBuildEfficiencyScore(statValuation, 1.5), weight: 0.10 },
+  { scorer: earlyBuildEfficiencyScore(statValuation, 1.5, auraMultiplier), weight: 0.10 },
   { scorer: earlyAffordabilityScore(2500), weight: 0.25 },  // Very affordable early builds
   { scorer: earlyUtilityScore(3000), weight: 0.20 },  // Utility matters most
 ]);
@@ -558,15 +564,17 @@ export const createSupportScorer = (
  * - Less concerned about transition cost (can farm it up)
  *
  * @param statValuation - Pre-calculated stat valuations
+ * @param auraMultiplier - Multiplier for aura stats (default: 1.0)
  */
 export const createCoreScorer = (
-  statValuation: StatValuation
+  statValuation: StatValuation,
+  auraMultiplier = 1.0
 ): TransitionScorer => weightedScore([
   { scorer: reuseEfficiencyScore, weight: 0.25 },
   { scorer: wasteAvoidanceScore, weight: 0.10 },
   { scorer: costDeltaScore(5000), weight: 0.15 },  // Cores want big upgrades
   { scorer: transitionAffordabilityScore(6000), weight: 0.10 },  // Less important for cores
-  { scorer: earlyBuildEfficiencyScore(statValuation, 1.5), weight: 0.20 },
+  { scorer: earlyBuildEfficiencyScore(statValuation, 1.5, auraMultiplier), weight: 0.20 },
   { scorer: earlyAffordabilityScore(4000), weight: 0.10 },  // Can afford more
   { scorer: earlyUtilityScore(2000), weight: 0.10 },
 ]);

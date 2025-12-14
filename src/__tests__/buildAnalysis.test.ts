@@ -6,7 +6,7 @@ import {
   findTransitionsToItem,
   findTransitionsFromItem,
 } from "../calculators/buildAnalysis";
-import { costIncreaseConstraint, allConstraints, minComponentReuse } from "../calculators/constraints";
+import { costIncreaseConstraint, allConstraints, minTotalRecovery } from "../calculators/constraints";
 import { reuseEfficiencyScore } from "../calculators/scorers";
 import { ItemRepository } from "../data/ItemRepository";
 import {
@@ -78,10 +78,10 @@ describe("buildAnalysis", () => {
     });
 
     it("uses custom constraint when provided", () => {
-      // Constraint: must have high component reuse
+      // Constraint: must have high total gold recovery
       const strictConstraint = allConstraints(
         costIncreaseConstraint,
-        minComponentReuse(0.8)
+        minTotalRecovery(0.8)
       );
 
       const result = analyzeValidTransitions(items, DEFAULT_CONFIG, {
@@ -90,11 +90,12 @@ describe("buildAnalysis", () => {
         constraint: strictConstraint,
       });
 
-      // All results should have high reuse
+      // All results should have high total recovery (components + recipes)
       for (const transition of result.transitions) {
-        const reusePercent =
-          transition.componentFlow.reusedGold / transition.from.totalCost;
-        expect(reusePercent).toBeGreaterThanOrEqual(0.8);
+        const totalRecovered = 
+          transition.componentFlow.reusedGold + transition.componentFlow.recoveredRecipeCost;
+        const recoveryPercent = totalRecovered / transition.from.totalCost;
+        expect(recoveryPercent).toBeGreaterThanOrEqual(0.8);
       }
     });
 

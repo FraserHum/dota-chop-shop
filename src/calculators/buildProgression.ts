@@ -53,6 +53,10 @@ import {
   StageScorer,
   StageAnalysisStats,
   ComponentPool,
+  ProgressionProgressCallback,
+  ProgressionProgressUpdate,
+  ProgressionPhase,
+  Loadout,
 } from "../models/buildTypes";
 import { ItemRepository } from "../data/ItemRepository";
 import { AnalysisConfig, DEFAULT_CONFIG } from "../config/analysisConfig";
@@ -75,7 +79,7 @@ import {
 import {
   standardSequenceConstraints,
   allStageConstraints,
-  minReuseFromPrevious,
+  minTotalRecoveryFromPrevious,
   fromLoadoutConstraint,
   loadoutMustContain,
   loadoutMustNotContain,
@@ -166,6 +170,73 @@ function injectBootsIntoPool(
   };
 }
 
+
+/**
+ * Create a progress update object with a formatted message.
+ */
+function createProgressUpdate(
+  phase: ProgressionPhase,
+  totalStages: number,
+  startTime: number,
+  opts: {
+    stageIndex?: number;
+    evaluated?: number;
+    valid?: number;
+    sequenceIndex?: number;
+    totalSequences?: number;
+  } = {}
+): ProgressionProgressUpdate {
+  const elapsedMs = Date.now() - startTime;
+  const { stageIndex, evaluated, valid, sequenceIndex, totalSequences } = opts;
+
+  // Build human-readable message
+  let message: string;
+  switch (phase) {
+    case 'initializing':
+      message = 'Initializing analysis...';
+      break;
+    case 'resolving':
+      message = 'Resolving target items...';
+      break;
+    case 'generating':
+      if (stageIndex !== undefined) {
+        const evalStr = evaluated !== undefined ? ` (${evaluated.toLocaleString()} evaluated` : '';
+        const validStr = valid !== undefined ? `, ${valid.toLocaleString()} valid)` : evalStr ? ')' : '';
+        message = `Stage ${stageIndex + 1}/${totalStages}: Generating loadouts...${evalStr}${validStr}`;
+      } else {
+        message = 'Generating loadouts...';
+      }
+      break;
+    case 'expanding':
+      if (stageIndex !== undefined) {
+        const seqStr = sequenceIndex !== undefined && totalSequences !== undefined
+          ? ` (seq ${sequenceIndex + 1}/${totalSequences})`
+          : '';
+        const evalStr = evaluated !== undefined ? ` [${evaluated.toLocaleString()} evaluated]` : '';
+        message = `Stage ${stageIndex + 1}/${totalStages}: Expanding${seqStr}${evalStr}`;
+      } else {
+        message = 'Expanding sequences...';
+      }
+      break;
+    case 'finalizing':
+      message = `Finalizing results... (${totalStages} stages complete)`;
+      break;
+    default:
+      message = 'Processing...';
+  }
+
+  return {
+    phase,
+    stageIndex,
+    totalStages,
+    evaluated,
+    valid,
+    sequenceIndex,
+    totalSequences,
+    elapsedMs,
+    message,
+  };
+}
 
 /**
  * Build the item pool for a stage, considering required items and filters.
@@ -274,6 +345,8 @@ interface StageCandidateResult {
  * @param requiredItems - Items that must be in the loadout
  * @param inputPool - Component pool to build from
  * @param includeComponents - Include component items in pool (default: true)
+ * @param slotOptions - Slot configuration for inventory/backpack
+ * @param onEvaluationProgress - Optional callback for progress updates (called every 10k evals)
  */
 function generateStageLoadouts(
   repo: ItemRepository,
@@ -287,7 +360,8 @@ function generateStageLoadouts(
   requiredItems: readonly Item[],
   inputPool: ComponentPool,
   includeComponents: boolean = true,
-  slotOptions?: SlotOptions
+  slotOptions?: SlotOptions,
+  onEvaluationProgress?: (evaluated: number, valid: number) => void
 ): StageCandidateResult {
   // Build item pool (items we can potentially assemble)
   const itemPool = buildStageItemPool(
@@ -342,6 +416,11 @@ function generateStageLoadouts(
   
   for (const combo of comboGen) {
     evaluated++;
+
+    // Report progress every 5,000 evaluations (or on first evaluation)
+    if (onEvaluationProgress && (evaluated === 1 || evaluated % 5000 === 0)) {
+      onEvaluationProgress(evaluated, valid);
+    }
     
     // Plan how to assemble this combo from our pool
     const plan = planAssemblyFromPool(combo, inputPool, repo, stageDef.maxCost);
@@ -376,6 +455,11 @@ function generateStageLoadouts(
     }
   }
   
+  // Final progress report
+  if (onEvaluationProgress) {
+    onEvaluationProgress(evaluated, valid);
+  }
+
   return {
     stages: results.toArray().map((r) => r.stage),
     stats: {
@@ -412,7 +496,8 @@ function expandToNextStage(
   minReuseRatio: number,
   requiredItems: readonly Item[],
   includeComponents: boolean = true,
-  slotOptions?: SlotOptions
+  slotOptions?: SlotOptions,
+  onExpansionProgress?: (sequenceIndex: number, totalSequences: number, evaluated: number, valid: number) => void
 ): { sequences: BuildSequence[]; stats: StageAnalysisStats } {
   const results = new BoundedPriorityQueue<BuildSequence>(
     beamWidth,
@@ -424,10 +509,17 @@ function expandToNextStage(
   let evaluated = 0;
   let valid = 0;
   let scoreSum = 0;
+  const totalSequences = currentSequences.length;
   
-  for (const sequence of currentSequences) {
+  for (let seqIdx = 0; seqIdx < currentSequences.length; seqIdx++) {
+    const sequence = currentSequences[seqIdx];
     const lastStage = sequence.stages[sequence.stages.length - 1];
     const lastLoadout = lastStage.loadout;
+
+    // Report progress at start of each sequence
+    if (onExpansionProgress) {
+      onExpansionProgress(seqIdx, totalSequences, evaluated, valid);
+    }
     
     // Step 1: Disassemble previous loadout into component pool
     let componentPool = disassembleLoadout(lastLoadout, repo);
@@ -599,15 +691,27 @@ export function analyzeProgression(
     defaultItemCount = 3,
     resultLimit = 20,
     beamWidth = resultLimit * 10,
-    minComponentReuse = 0.3,
+    minTotalRecovery = 0.3,
     statValuation,
+    auraMultiplier = 1.0,
     targetCoverageWeight = 0.4,
-    includeComponentItems = true,
     inventorySlots,
     backpackSlots,
+    onProgress,
   } = options;
 
   const slotOptions = { inventorySlots, backpackSlots };
+  const totalStages = stages.length;
+
+  // Helper to report progress if callback provided
+  const reportProgress = (
+    phase: ProgressionPhase,
+    opts: Parameters<typeof createProgressUpdate>[3] = {}
+  ) => {
+    if (onProgress) {
+      onProgress(createProgressUpdate(phase, totalStages, startTime, opts));
+    }
+  };
   
   // Handle empty stages
   if (stages.length === 0) {
@@ -629,7 +733,11 @@ export function analyzeProgression(
     };
   }
   
+  // Report initialization
+  reportProgress('initializing');
+
   // Resolve required items for each stage
+  reportProgress('resolving');
   const stageTargetsMap = new Map<number, readonly string[]>();
   for (let i = 0; i < stages.length; i++) {
     if (stages[i].requiredItems && stages[i].requiredItems!.length > 0) {
@@ -652,12 +760,12 @@ export function analyzeProgression(
   const scorer =
     defaultScorer ??
     (statValuation
-      ? createBalancedStageScorer(statValuation)
-      : createBalancedStageScorer({} as StatValuation));
+      ? createBalancedStageScorer(statValuation, auraMultiplier)
+      : createBalancedStageScorer({} as StatValuation, auraMultiplier));
   
   // Build base constraints
   const baseConstraint = standardSequenceConstraints(config);
-  const reuseConstraint = minReuseFromPrevious(minComponentReuse);
+  const reuseConstraint = minTotalRecoveryFromPrevious(minTotalRecovery);
   
   const stageStats: StageAnalysisStats[] = [];
   let totalEvaluated = 0;
@@ -697,6 +805,13 @@ export function analyzeProgression(
     stage0Pool = injectBootsIntoPool(stage0Pool, repo);
   }
   
+  // Determine whether to include component items for stage 0
+  // Default to true if not specified at the stage level
+  const stage0IncludeComponents = stage0Def.allowRawComponents ?? true;
+
+  // Report stage 0 generation start
+  reportProgress('generating', { stageIndex: 0 });
+
   const { stages: initialStages, stats: stage0Stats } = generateStageLoadouts(
     repo,
     config,
@@ -708,8 +823,11 @@ export function analyzeProgression(
     beamWidth,
     stage0Required,
     stage0Pool,
-    includeComponentItems,
-    slotOptions
+    stage0IncludeComponents,
+    slotOptions,
+    onProgress
+      ? (evaluated, valid) => reportProgress('generating', { stageIndex: 0, evaluated, valid })
+      : undefined
   );
   
   stageStats.push(stage0Stats);
@@ -770,6 +888,16 @@ export function analyzeProgression(
     // Note: requireBoots is handled via pool injection in expandToNextStage
     
     const stageScorer = stageDef.scorer ?? scorer;
+
+    // Determine whether to include component items for this stage
+    // Default to true if not specified at the stage level
+    const stageIncludeComponents = stageDef.allowRawComponents ?? true;
+
+    // Report stage expansion start
+    reportProgress('expanding', {
+      stageIndex: i,
+      totalSequences: currentSequences.length,
+    });
     
     const { sequences: nextSequences, stats: nextStats } = expandToNextStage(
       currentSequences,
@@ -782,10 +910,20 @@ export function analyzeProgression(
       stageConstraint,
       stageScorer,
       beamWidth,
-      minComponentReuse,
+      minTotalRecovery,
       stageRequired,
-      includeComponentItems,
-      slotOptions
+      stageIncludeComponents,
+      slotOptions,
+      onProgress
+        ? (seqIdx, totalSeqs, evaluated, valid) =>
+            reportProgress('expanding', {
+              stageIndex: i,
+              sequenceIndex: seqIdx,
+              totalSequences: totalSeqs,
+              evaluated,
+              valid,
+            })
+        : undefined
     );
     
     stageStats.push(nextStats);
@@ -814,6 +952,9 @@ export function analyzeProgression(
     currentSequences = nextSequences;
   }
   
+  // Report finalizing
+  reportProgress('finalizing', { evaluated: totalEvaluated });
+
   // Sort and limit final results
   currentSequences.sort((a, b) => b.totalScore - a.totalScore);
   const topSequences = currentSequences.slice(0, resultLimit);
@@ -1021,9 +1162,12 @@ export function formatProgression(
         const prevCost = prevStage.loadout.totalInvestedCost ?? prevStage.loadout.totalCost;
         const transition = stage.transition;
         const goldDelta = cost - prevCost;
+        // Include both reused components AND recovered recipe costs
+        // This gives the intuitive result: keeping Pavise (1400g) = 100% reuse
         const reusePercent = transition
           ? Math.round(
-              (transition.componentFlow.reusedGold /
+              ((transition.componentFlow.reusedGold +
+                transition.componentFlow.recoveredRecipeCost) /
                 prevStage.loadout.totalCost) *
                 100
             )
@@ -1087,6 +1231,188 @@ export function formatProgressionStats(stats: BuildProgressionStats): string {
   }
   
   return lines.join("\n");
+}
+
+// ─────────────────────────────────────────────────────────────
+// Async Worker-Based Analysis
+// ─────────────────────────────────────────────────────────────
+
+import {
+  ProgressionWorkerInput,
+  ProgressionWorkerMessage,
+  SerializedBuildSequence,
+} from "../workers/types";
+
+/**
+ * Options for async progression analysis.
+ */
+export interface AsyncProgressionOptions extends Omit<BuildProgressionOptions, 'onProgress'> {
+  /** Progress callback - will be called from the main thread */
+  onProgress?: ProgressionProgressCallback;
+}
+
+/**
+ * Run progression analysis asynchronously in a worker thread.
+ *
+ * This allows the main thread to remain responsive and update the UI
+ * (e.g., spinner animations) while the analysis runs.
+ *
+ * @param items - All available items
+ * @param config - Analysis configuration
+ * @param options - Analysis options including progress callback
+ * @param itemRepo - Optional pre-built ItemRepository (not used, items are passed to worker)
+ * @returns Promise resolving to the analysis result
+ */
+export async function analyzeProgressionAsync(
+  items: Item[],
+  config: AnalysisConfig = DEFAULT_CONFIG,
+  options: AsyncProgressionOptions,
+  itemRepo?: ItemRepository
+): Promise<BuildProgressionResult> {
+  const {
+    stages,
+    defaultItemCount = 3,
+    resultLimit = 20,
+    beamWidth = resultLimit * 10,
+    minTotalRecovery = 0.3,
+    statValuation,
+    auraMultiplier = 1.0,
+    targetCoverageWeight = 0.4,
+    inventorySlots,
+    backpackSlots,
+    onProgress,
+  } = options;
+
+  // Prepare worker input
+  const workerInput: ProgressionWorkerInput = {
+    allItems: items,
+    config,
+    stages: stages as StageDefinition[], // Cast away readonly for serialization
+    defaultItemCount,
+    resultLimit,
+    beamWidth,
+    minTotalRecovery,
+    statValuation,
+    auraMultiplier,
+    targetCoverageWeight,
+    inventorySlots,
+    backpackSlots,
+  };
+
+  return new Promise((resolve, reject) => {
+    const workerUrl = new URL("../workers/progressionWorker.ts", import.meta.url);
+    const worker = new Worker(workerUrl.href);
+
+    worker.onmessage = (event: MessageEvent<ProgressionWorkerMessage>) => {
+      const message = event.data;
+
+      switch (message.type) {
+        case "progress":
+          if (onProgress) {
+            onProgress({
+              phase: message.phase,
+              stageIndex: message.stageIndex,
+              totalStages: message.totalStages,
+              evaluated: message.evaluated,
+              valid: message.valid,
+              sequenceIndex: message.sequenceIndex,
+              totalSequences: message.totalSequences,
+              elapsedMs: message.elapsedMs,
+              message: message.message,
+            });
+          }
+          break;
+
+        case "result":
+          worker.terminate();
+
+          // Reconstruct the result with proper Item references
+          const repo = itemRepo ?? new ItemRepository(items);
+          const sequences = deserializeBuildSequences(
+            message.sequences,
+            repo,
+            statValuation
+          );
+
+          // Convert arrays back to Maps
+          const resolvedTargets = new Map<number, readonly Item[]>();
+          for (const [stageIdx, itemNames] of message.resolvedTargets) {
+            const resolvedItems = itemNames
+              .map((name) => repo.getByName(name))
+              .filter((item): item is Item => item !== undefined);
+            resolvedTargets.set(stageIdx, resolvedItems);
+          }
+
+          const unresolvedTargets = new Map<number, readonly string[]>();
+          for (const [stageIdx, names] of message.unresolvedTargets) {
+            unresolvedTargets.set(stageIdx, names);
+          }
+
+          resolve({
+            sequences,
+            resolvedTargets,
+            unresolvedTargets,
+            stats: message.stats,
+          });
+          break;
+
+        case "error":
+          worker.terminate();
+          reject(new Error(message.error));
+          break;
+      }
+    };
+
+    worker.onerror = (error) => {
+      worker.terminate();
+      reject(error);
+    };
+
+    worker.postMessage(workerInput);
+  });
+}
+
+/**
+ * Deserialize build sequences from worker output.
+ * Recreates transitions between stages for proper display.
+ */
+function deserializeBuildSequences(
+  serialized: SerializedBuildSequence[],
+  repo: ItemRepository,
+  statValuation?: StatValuation
+): BuildSequence[] {
+  return serialized.map((s) => {
+    // First pass: create all loadouts
+    const loadouts: Loadout[] = s.stageItems.map((itemNames) => {
+      const items = itemNames
+        .map((name) => repo.getByName(name))
+        .filter((item): item is Item => item !== undefined);
+
+      return createLoadoutWithLeftovers(items, [], repo, statValuation);
+    });
+
+    // Second pass: create stages with transitions
+    const stages: BuildStage[] = loadouts.map((loadout, stageIndex) => {
+      // Recreate transition from previous stage
+      const transition =
+        stageIndex > 0
+          ? createTransition(loadouts[stageIndex - 1], loadout, repo)
+          : null;
+
+      return {
+        loadout,
+        stageIndex,
+        costThreshold: s.stageThresholds[stageIndex],
+        transition,
+      };
+    });
+
+    return {
+      stages,
+      totalScore: s.totalScore,
+      stageScores: s.stageScores,
+    };
+  });
 }
 
 // ─────────────────────────────────────────────────────────────

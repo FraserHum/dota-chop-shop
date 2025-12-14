@@ -33,7 +33,14 @@ export interface Item {
   name: string;
   displayName: string;
   cost: number;
+  /** Base stats provided by the item (non-aura) */
   stats: ItemStats;
+  /** 
+   * Aura stats provided by the item (team-wide benefits).
+   * These are separate from base stats and can be multiplied
+   * based on expected team presence in fights.
+   */
+  auraStats: ItemStats;
   isComponent: boolean;
   isConsumable: boolean;
   components: string[];

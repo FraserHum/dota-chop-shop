@@ -15,12 +15,16 @@ import {
   promptCommaList,
 } from "../prompts";
 import {
-  analyzeProgression,
+  analyzeProgressionAsync,
   formatProgression,
   formatProgressionStats,
+  AsyncProgressionOptions,
 } from "../../calculators/buildProgression";
-import { BuildProgressionOptions, StageDefinition } from "../../models/buildTypes";
-import { intro, outro, spinner, log, note } from "@clack/prompts";
+import {
+  StageDefinition,
+  ProgressionProgressCallback,
+} from "../../models/buildTypes";
+import { intro, outro, log, note, spinner } from "@clack/prompts";
 
 /**
  * Main entry point for interactive run command
@@ -43,27 +47,33 @@ export async function printInteractiveRun(
     // Phase 3: Configure each stage
     const stages = await promptStages(numStages);
 
+    // Run analysis with async worker (allows spinner to animate)
+    log.step("Running Analysis");
+    const s = spinner();
+    s.start("Initializing...");
+
+    // Progress callback updates spinner message
+    const onProgress: ProgressionProgressCallback = (update) => {
+      s.message(update.message);
+    };
+
     // Build final options
-    const options: BuildProgressionOptions = {
+    const options: AsyncProgressionOptions = {
       stages,
       defaultItemCount: generalConfig.itemCount,
       resultLimit: generalConfig.resultLimit,
       beamWidth: generalConfig.beamWidth,
-      minComponentReuse: generalConfig.minReuse,
+      minTotalRecovery: generalConfig.minReuse,
       statValuation: ctx.statValuation,
+      auraMultiplier: generalConfig.auraMultiplier,
       targetCoverageWeight: generalConfig.targetCoverage,
-      includeComponentItems: true,
       inventorySlots: generalConfig.inventorySlots,
       backpackSlots: generalConfig.backpackSlots,
+      onProgress,
     };
 
-    // Run analysis
-    log.step("Running Analysis");
-    const s = spinner();
-    s.start("Analyzing progression...");
-
     try {
-      const result = analyzeProgression(ctx.items, ctx.config, options, ctx.repo);
+      const result = await analyzeProgressionAsync(ctx.items, ctx.config, options, ctx.repo);
       s.stop("Analysis complete!");
 
       // Display results
@@ -240,7 +250,8 @@ async function promptStages(numStages: number): Promise<StageDefinition[]> {
   let bootStageIndex = -1;
 
   for (let i = 0; i < numStages; i++) {
-    log.message(`Stage ${i + 1} of ${numStages}`);
+    console.log(""); // Visual spacing
+    note(`Configure stage ${i + 1}`, `STAGE ${i + 1} OF ${numStages}`);
 
     const previousCost = i > 0 ? stages[i - 1].maxCost : 0;
     const defaultCost = previousCost + 2000;
@@ -274,11 +285,18 @@ async function promptStages(numStages: number): Promise<StageDefinition[]> {
       log.info(`Boots already required from stage ${bootStageIndex + 1}`);
     }
 
+    // Ask whether to allow raw component items (items without children)
+    const allowRawComponents = await promptConfirm(
+      `Allow raw components? (e.g. Boots of Speed, Blades of Attack)`,
+      true
+    );
+
     const stage: StageDefinition = {
       maxCost,
       requiredItems: requiredItems.length > 0 ? requiredItems : undefined,
       excludedItems: excludedItems.length > 0 ? excludedItems : undefined,
       requireBoots,
+      allowRawComponents,
     };
 
     stages.push(stage);
