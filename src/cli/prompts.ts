@@ -27,6 +27,8 @@ export function formatDefaultHint(value: any): string {
 /**
  * Prompt for a number with validation and default value display.
  * Returns string - caller should parse to number if needed.
+ * 
+ * If user presses enter without input, the defaultValue is returned.
  */
 export async function promptNumber(
   message: string,
@@ -47,6 +49,17 @@ export async function promptNumber(
     defaultValue: String(defaultValue ?? ""),
     placeholder: placeholder ?? "0",
     validate: (v) => {
+      // If empty and we have a default, it's valid (will use default)
+      if (v.trim() === "" && defaultValue !== undefined) {
+        return undefined;
+      }
+
+      // If empty and no default, require input
+      if (v.trim() === "") {
+        return "Value is required";
+      }
+
+      // Run custom validator if provided
       if (validator) {
         const validationResult = validator(v);
         return validationResult === true ? undefined : String(validationResult);
@@ -60,11 +73,18 @@ export async function promptNumber(
     throw new Error("Operation cancelled by user");
   }
 
+  // If user pressed enter without typing, return default
+  if (result.trim() === "" && defaultValue !== undefined) {
+    return String(defaultValue);
+  }
+
   return result as string;
 }
 
 /**
  * Prompt for a string with validation and default value display.
+ * 
+ * If user presses enter without input, the defaultValue is returned.
  */
 export async function promptString(
   message: string,
@@ -84,6 +104,12 @@ export async function promptString(
     defaultValue,
     placeholder,
     validate: (v) => {
+      // If empty and we have a default, it's valid (will use default)
+      if (v.trim() === "" && defaultValue !== undefined) {
+        return undefined;
+      }
+
+      // Run custom validator if provided
       if (validator) {
         const validationResult = validator(v);
         return validationResult === true ? undefined : String(validationResult);
@@ -95,6 +121,11 @@ export async function promptString(
   if (isCancel(result)) {
     cancel("cancelled");
     throw new Error("Operation cancelled by user");
+  }
+
+  // If user pressed enter without typing, return default
+  if (result.trim() === "" && defaultValue !== undefined) {
+    return defaultValue;
   }
 
   return result as string;
@@ -153,6 +184,8 @@ export async function promptSelect<T>(
 /**
  * Prompt for comma-separated list of items with empty values allowed.
  * Returns empty array if user provides empty input.
+ * 
+ * If user presses enter without input, the defaultValue is returned.
  */
 export async function promptCommaList(
   message: string,
@@ -183,6 +216,8 @@ export async function promptCommaList(
   }
 
   const trimmed = (result as string).trim();
+  
+  // If user pressed enter without typing, return default
   if (!trimmed) {
     return defaultValue ?? [];
   }
